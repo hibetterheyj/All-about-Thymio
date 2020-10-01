@@ -1,0 +1,144 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: slam similarity
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Demonstrate localization against a map
+# The map has three objects in a line
+# Touch the backwards button to initialize
+# Collect database of samples for each of 15 poses of the robot
+# Positions (0,0), (0,1), (0,-1), (1,0), (-1,0)
+#   and for each position orientations -30, 0, 30
+# Touch the center button to record the samples
+#
+# Place the robot at one of the 15 poses and touch the
+#   forward button. The button and circle leds indicate
+#   the best fit for position and orientation
+#
+# Tip: After recording the database of samples,
+#        save it using Export memories content in the File menu
+#      You can Import it so you don't have to regenerate the database
+
+# Collect values for the left, center and right sensors
+#   for each of the 15 poses
+var left_samples[15]
+var center_samples[15]
+var right_samples[15]
+
+# Save the sensors values for the pose to be tested
+var left
+var right
+var center
+
+# Compute the similarities of the test sample with all the others
+# Save index of the lowest value of the similarities
+# The array is not needed but it is convenient to examine its values
+var similarity[15]
+var best_similarity
+var best_index
+
+# Index over poses
+var index
+
+# Sample order
+# Index  position   rotate
+#   0      0,0        -30
+#   1      0,0          0
+#   2      0,0        +30
+#   3      1,0        -30
+#   4      1,0          0
+#   5      1,0        +30
+#   6     -1,0        -30
+#   7     -1,0          0
+#   8     -1,0        +30
+#   9      0,1        -30
+#  10      0,1          0
+#  11      0,1        +30
+#  12     0,-1        -30
+#  13     0,-1          0
+#  14     0,-1        +30
+
+call leds.buttons(0,0,0,0)
+call leds.circle(0,0,0,0,0,0,0,0)
+
+# Display the position of the best index in the button leds
+#   and the orientation in the circle leds
+sub display_result
+	if     best_index &lt;  3 then call leds.buttons(32,32,32,32)
+	elseif best_index &lt;  6 then call leds.buttons(0,32,0,0)
+	elseif best_index &lt;  9 then call leds.buttons(0,0,0,32)
+	elseif best_index &lt; 12 then call leds.buttons(32,0,0,0)
+	else                        call leds.buttons(0,0,32,0)
+	end
+	if     best_index % 3 == 0 then call leds.circle(0,32,0,0,0,0,0,0)
+	elseif best_index % 3 == 1 then call leds.circle(32,0,0,0,0,0,0,0)
+	else                            call leds.circle(0,0,0,0,0,0,0,32)
+	end
+
+# Compute the similarity between the test sample
+#   and each sample in the database
+# The similarity is the sum of the absolute value
+#   of the difference for each sensor
+# Choose the best one
+sub find_best
+	best_similarity = 32000
+	for index in 0:14 do
+		similarity[index] =
+		  abs (left-left_samples[index]) +
+		  abs (center-center_samples[index]) +
+		  abs (right-right_samples[index])
+		if similarity[index] &lt; best_similarity then
+			best_similarity = similarity[index]
+			best_index = index
+		end
+	end
+	callsub display_result
+
+# Button even handler
+onevent buttons
+  # Backward button: zero database and set index to zero
+  when button.backward == 1 do
+    for index in 0:14 do
+      left_samples[index] = 0
+      center_samples[index] = 0
+      right_samples[index] = 0
+    end
+  	 index = 0
+    return
+  end
+  # Center button: save the current values of the sensors
+  #   at the current place in the database
+  # Sensors 1,2,3 seem to work better than 0,2,4
+  when button.center == 1 do
+		left_samples[index] = prox.horizontal[1]
+		center_samples[index] = prox.horizontal[2]
+		right_samples[index] = prox.horizontal[3]
+		index++
+		return
+  end
+  # Forward button: sample the sensors and call find_best
+  when button.forward == 1 do
+		left = prox.horizontal[1]
+		center = prox.horizontal[2]
+		right = prox.horizontal[3]
+		callsub find_best
+		return
+	end
+</node>
+
+
+</network>

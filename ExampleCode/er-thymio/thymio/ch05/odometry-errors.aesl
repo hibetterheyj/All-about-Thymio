@@ -1,0 +1,98 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: odometry errors
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Left, right buttons set motor power (by +/- 100)
+# Forward, backward buttons to set difference
+#   between left and right motors (by +/- 10)
+# Center button to start, stop
+
+# Circle leds display motor
+# Use Variables pane to see motor_diff
+
+# Variables
+var motor          # Motor power
+var motor_diff     # Difference between motors
+var state          # 0 = off, 1 = on
+
+# Initialization
+motor = 0
+motor_diff = 0
+state = 0
+call leds.circle(0,0,0,0,0,0,0,0)
+
+# Set the circle leds to indicate the motor power
+sub set_circle_leds
+  if motor/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/100==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor/100==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor/100==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor/100==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor/100==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# Button event handlers
+#   Left/right: increase or decrease motor power within 0-500
+onevent button.left
+  if  button.left == 0 then
+    motor = motor - 100
+    if  motor &lt; 0 then motor = 0 end
+    callsub set_circle_leds
+  end
+
+onevent button.right
+  if  button.right == 0 then
+    motor = motor + 100
+    if  motor > 500 then motor = 500 end
+    callsub set_circle_leds
+  end
+
+#   forwards, backwards: increase or decrease diff within 0-100
+onevent button.forward
+  if  button.forward == 0 then
+    motor_diff = motor_diff + 10
+    if  motor_diff > 100 then motor_diff = 100 end
+  end
+
+onevent button.backward
+  if  button.backward == 0 then
+    motor_diff = motor_diff - 10
+    if  motor_diff &lt; 0 then motor_diff = 0 end
+  end
+
+# When center button released
+onevent button.center
+  if  button.center == 0 then
+    # If off, set state to 1 (on) and dirve forwards
+    if  state == 0 then
+      state = 1
+      motor.left.target  = motor + motor_diff
+      motor.right.target = motor
+    #   else if state is on, call stop the motors
+    else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+      motor = 0
+      motor_diff = 0
+      callsub set_circle_leds
+    end
+  end
+</node>
+
+
+</network>

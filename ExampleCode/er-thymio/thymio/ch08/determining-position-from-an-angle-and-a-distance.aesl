@@ -1,0 +1,160 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="20" name="THETA"/>
+<constant value="8" name="OFFSET"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: determining distance from an angle and a distance
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# See "Projects for the Thymio Robot in the Aseba Studio Environment"
+#   for a detailed description
+
+# Values of the horizontal proximity sensor for an object at
+# 2 .. 16 cm in increments of 2 cm
+# -1 is a sentinel to stop the search
+var proximity[] = [4300, 4200, 3800, 3500, 3300, 3000, 2600, 2300, -1]
+
+# Index for searching the proximity sensors and array
+var index
+
+# Index of sensor with maximum value and the maximum value
+var max_prox
+var max_value
+
+# Distance in cm computed from proximity sensor values
+# Uses constant OFFSET: distance from center hole to the sensors
+var distance
+
+# Angle to object: -2*THETA, -THETA, 0, THETA, 2*THETA
+var angle
+
+# x, y coordinates and variables for their computation
+var x
+var y
+var theta
+var dsin
+var dcos
+
+# Arcs of the circle leds to show relative x coordinate
+var arcs
+
+#################################################################
+
+# Subroutines for displaying data on the leds
+
+# Clear all leds
+sub clear_leds
+	call leds.circle(0,0,0,0,0,0,0,0)
+	call leds.bottom.left(0,0,0)
+	call leds.bottom.right(0,0,0)
+
+# Set the circle leds to indicate the index into the array proximity
+#   Use 31 instead of 32 so as not to overflow
+sub set_distance_leds
+	call leds.circle(
+    	(index/1)*31, (index/2)*31, (index/3)*31, (index/4)*31,
+	    (index/5)*31, (index/6)*31, (index/7)*31, (index/8)*31)
+
+# The angle is displayed as a color in the top leds
+#   and the sign in the bottom leds
+sub set_angle_leds
+	if angle &lt; 0 then call leds.bottom.left(32,0,0)
+	elseif angle > 0 then call leds.bottom.right(32,0,0)
+	end
+	if abs(angle) == THETA then call leds.top(0,32,0)
+	elseif abs(angle) == 2*THETA then call leds.top(0,0,32)
+	else call leds.top(0,32,32)
+	end
+
+# Display the coordinates
+#   x: leds 1,2,3 indicate higher x, leds 7,6,5 higher negative x
+#   y: the brighter the top leds, the larger the y coordinate
+sub set_coordinate_leds
+    call leds.top(y*3,y*3,y*3)
+	arcs = 0
+	if abs(x) > 1 then arcs = 2 end
+	if abs(x) > 4 then arcs = 4 end
+	if abs(x) > 8 then arcs = 8 end
+	if x &lt; 0 then arcs = 256 / arcs end
+	call leds.circle(
+    	(arcs &amp; 1)*31, (arcs &amp; 2)*31, (arcs &amp; 4)*31, (arcs &amp; 8)*31,
+	    (arcs &amp; 16)*31, (arcs &amp; 32)*31, (arcs &amp; 64)*31, (arcs &amp; 128)*31)
+
+#################################################################
+
+# Computations of distance, angle, coordinates
+
+# Get the angle to the object by finding the sensor
+#   with the highest value
+sub get_angle
+	max_value = -1
+	for index in 0:4 do
+		if prox.horizontal[index] > max_value then
+			max_value = prox.horizontal[index]
+			max_prox = index
+		end
+	end
+	angle = (2 - max_prox) * THETA
+
+# Get the distance by searching the proximity array
+#   for the first item greater than the sensor value
+# Distance takes into account OFFSET of hole from sensors
+sub get_distance
+	index = 0
+  	while proximity[index] > prox.horizontal[max_prox] do
+    	index++
+    end
+    distance = OFFSET + index * 2
+
+# Compute the coordinates as:
+#   x = distance * sin(angle), y = distance * cos(angle)
+# Aseba sin/cos use radians in the full 16-bit integer range
+sub compute_coordinates
+	call math.muldiv(theta, 314, angle, 180)
+	theta = theta * 100
+	call math.sin(dsin, theta)
+	call math.cos(dcos, theta)
+	call math.muldiv(x, dsin, distance, 32767)
+	call math.muldiv(y, dcos, distance, 32767)
+	y = y - OFFSET
+
+#################################################################
+
+# Button event handlers
+
+# When the forward button is released,
+#   sense, compute and display the distance and angle
+onevent button.forward
+	when  button.forward == 0 do
+		callsub clear_leds
+		callsub get_angle	
+		callsub get_distance
+		callsub set_angle_leds
+	    callsub set_distance_leds
+	end
+
+# When the backward button is released,
+#   compute and display the x and y coordinates
+onevent button.backward
+	when  button.backward == 0 do
+		callsub clear_leds
+	    callsub compute_coordinates
+		callsub set_coordinate_leds		
+	end
+</node>
+
+
+</network>

@@ -1,0 +1,102 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="4000" name="TARGET"/>
+<constant value="100" name="TARGET_ERROR"/>
+<constant value="6" name="GAIN_P"/>
+<constant value="1" name="GAIN_I"/>
+<constant value="15" name="SUM_FACTOR"/>
+<constant value="50" name="SCALE"/>
+<constant value="100" name="MOTOR"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: proportional-integral controller for approaching
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Constants
+#  TARGET        Highest value of the proximity sensor
+#  TARGET_ERROR  Stop when error is below this value
+#  GAIN_P        Power is error times gain
+#  GAIN_I        Gain for integral term
+#  MOTOR         Base motor power (very low)
+#  SCALE         Scale the error
+#  SUM_FACTOR    Factor to keep integral of reasonable size
+
+# Center button to start and stop
+# Robot approaches object detected by center sensor
+# Motor power is displayed in the circle leds
+
+var state       # The state 0 = off, 1 = on
+var error       # Difference between sensor and target values
+var scaled_error # Scale error
+var error_sum   # Integral (sum) of the error
+var motor_power # Motor power setting depending on error
+
+state = 0
+motor.left.target  = 0
+motor.right.target = 0
+error_sum = 0
+call leds.circle(0,0,0,0,0,0,0,0)
+
+sub set_circle_leds
+  if motor_power/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor_power/100==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor_power/100==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor_power/100==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor_power/100==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor_power/100==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# Stop the algorithm and the motors
+sub stop
+  state = 0
+  motor.left.target  = 0
+  motor.right.target = 0
+  call leds.circle(0,0,0,0,0,0,0,0)
+
+# Proximity event handler
+onevent prox
+  if state == 0 then return end
+  # Compute error and divide by a factor
+  error = abs (TARGET - prox.horizontal[2])
+  scaled_error = error / SCALE
+  # Increment the sum by the current error and facto
+  error_sum = error_sum + (scaled_error / SUM_FACTOR)
+  # Add the scaled error times the gain to the base motor power
+  motor_power = MOTOR + scaled_error * GAIN_P + error_sum * GAIN_I
+  if motor_power > 500 then motor_power = 500 end
+  # Do nothing in state 0
+  if state == 0 then return end
+  # If it is less than the target error, stop
+  if error &lt; TARGET_ERROR then
+    callsub stop
+  #  otherwise, set the motor power
+  else
+   motor.left.target  =  motor_power
+   motor.right.target =  motor_power
+  	callsub set_circle_leds
+  end
+
+# Center button event handler
+onevent button.center
+  if button.center == 1 then return end
+  if state == 0 then
+    error_sum = 0
+    state = 1
+  else
+    callsub stop
+  end
+</node>
+
+
+</network>

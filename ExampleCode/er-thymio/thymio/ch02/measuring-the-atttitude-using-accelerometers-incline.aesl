@@ -1,0 +1,36 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event size="1" name="pair_run"/>
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Measuring the attitude using accelerometers
+#                    Stop on an incline
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Touch forward button to start
+onevent button.forward
+  motor.left.target = 200
+  motor.right.target = 200
+
+# Stop when pitching forward
+onevent acc
+  when acc[1] &lt; -2 do
+    motor.left.target = 0
+    motor.right.target = 0
+  end
+</node>
+
+
+</network>

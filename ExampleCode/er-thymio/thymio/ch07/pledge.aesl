@@ -1,0 +1,202 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="450" name="THRESHOLD_HIGH"/>
+<constant value="250" name="THRESHOLD_LOW"/>
+<constant value="8" name="ACC"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="63974" name="thymio-II"># Thymio-II program: obstacle avoidance (Pledge algorithm)
+# Copyright 2013, 2016 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# The Thymio is assumed to start traveling "north"
+#   and encounters an obstacle
+# It follows the wall (here using a black tape
+#   and following the left edge using two sensors
+#   (right on tape, left off tape) for a smooth ride
+
+# The surface is at an incline so the yaw and pitch
+#   accelerometers measure the heading of the robot
+#   The heading is displayed on the top leds
+# When the robot is off the tape and traveling north
+#   it has avoided the obstacle and continues north
+
+# There is a bug corrected by the Pledge algorithm:
+#   The robot travels straight when the sum of its turns
+#   is 0 degrees, not north (0 degrees mod 360)
+# The difference is in the event handler for prox:
+#    Choose: turn_sum % 360 == 0  or  sum_sum == 0
+
+# Left, right buttons set motor power in increments of 50
+#   The circle leds display the power setting
+# Center button to start, stop
+
+# Constants
+#  THRESHOLD for sensing the tape
+#  ACC       threshold for acclerometers
+
+# Variables
+var state            # 0 = off, 1 = on
+var motor            # Selected motor power
+var yaw              # Save acc[0]
+var pitch            # Save acc[1]
+var found_black      # Initial detection of obstacle
+var turn_sum         # Cumulative sum of turns, +/- 90 on each turn
+var heading          # 0 = left, 1 = down, 2 = right, 3 = up
+var previous_heading # To check for a turn
+
+# Initialization
+state = 0
+found_black = 0
+turn_sum = 0
+previous_heading = -1
+call leds.circle(0,0,0,0,0,0,0,0)
+call leds.top(0,0,0)
+motor = 50
+motor.left.target  = 0
+motor.right.target = 0
+
+# Set the circle leds to indicate the motor power
+sub set_circle_leds
+  if motor/50==1 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/50==2 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor/50==3 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor/50==4 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor/50==5 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor/50==6 then call leds.circle(32,32,32,32,32,0,0,0) end
+  if motor/50==7 then call leds.circle(32,32,32,32,32,32,0,0) end
+  if motor/50==8 then call leds.circle(32,32,32,32,32,32,32,0) end
+  if motor/50==9 then call leds.circle(32,32,32,32,32,32,32,32) end
+
+# Left and right button event handlers
+# Increase or decrease motor power in increments of 50
+onevent button.left
+  if  button.left == 0 then
+    motor = motor - 50
+    if  motor &lt; 0 then motor = 0 end
+    callsub set_circle_leds
+  end
+
+onevent button.right
+  if  button.right == 0 then
+    motor = motor + 50
+    if  motor > 500 then motor = 500 end
+    callsub set_circle_leds
+  end
+
+# Center button event handler: start and stop
+onevent button.center
+  if  button.center == 0 then
+    # If off, reinitialize, set state to on and start motors
+    if  state == 0 then
+      state = 1
+      found_black = 0
+      turn_sum = 0
+      previous_heading = -1
+      motor.left.target  = motor
+      motor.right.target = motor
+      callsub set_circle_leds
+      call leds.top(0,0,0)
+   # If on, set state to off and stop motors
+   else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+    end
+  end
+
+# Proximity event
+onevent prox
+  if  state == 0 then return end
+  # Obstacle not yet found
+  if found_black == 0 then
+    # If obstacle found, set found_black and heading
+    if prox.ground.delta[0] &lt; THRESHOLD_LOW or
+       prox.ground.delta[1] &lt; THRESHOLD_LOW then
+      found_black = 1
+      heading = 3      # Up is north
+    end
+    return
+  end
+  # Follow line
+  # If off line, then if not north or not turn_sum = 0, turn right
+  if  prox.ground.delta[0] > THRESHOLD_HIGH and
+      prox.ground.delta[1] > THRESHOLD_HIGH and
+#     not (turn_sum % 360 == 0)  # Incorrect algorithm
+      not (turn_sum == 0)        # Pledge algorithm
+        then
+     motor.left.target  = motor
+     motor.right.target = -motor
+   # If on line then turn left
+   elseif prox.ground.delta[0] &lt; THRESHOLD_LOW and
+          prox.ground.delta[1] &lt; THRESHOLD_LOW then
+  	  motor.left.target  = -motor
+  	  motor.right.target = motor
+  	# Else (right on, left off) drive straight
+   else
+  	 motor.left.target  = motor
+  	 motor.right.target = motor
+  end
+
+# Update cumulative sum of turns
+sub update_turn_sum
+  # Initially, previous_heading is -1
+  if previous_heading == -1 then
+  	 previous_heading = heading
+  	 return
+  end
+  # If heading not changed, return
+  if heading == previous_heading then return end
+  # If heading changed, add/subtract 90 to/from direction
+  if heading == (previous_heading+1) % 4 then
+    turn_sum += 90
+  elseif heading == (previous_heading+3) % 4 then
+    turn_sum -= 90
+  end
+  # Save current heading
+  previous_heading = heading
+
+# Acceleromter event handler
+onevent acc
+  # Save values in named variables for clarity
+  yaw = acc[0]
+  pitch = acc[1]
+  # Both yaw and pitch too low, return
+  if (abs(yaw) &lt; ACC  and abs(pitch) &lt; ACC) then 
+    return
+  # Yaw low, pitch high -> heading is up or down
+  elseif abs(yaw) &lt; ACC and abs(pitch) >= ACC then
+    if pitch > 0 then
+  	   heading = 3         # Up
+  	   call leds.top(32,0,0)
+  	 else
+  	   heading = 1         # Down
+  	   call leds.top(32,0,32)
+  	 end
+  # Yaw high, pitch low -> heading is left or right
+  elseif abs(yaw) >= ACC and abs(pitch) &lt; ACC then
+    if yaw > 0 then
+  	   heading = 0         # Left
+  	   call leds.top(0,32,0)
+  	 else
+  	   heading = 2         # Right
+  	   call leds.top(0,32,32)
+  	 end
+  end
+  # Update turn sum
+  callsub update_turn_sum
+</node>
+
+
+</network>

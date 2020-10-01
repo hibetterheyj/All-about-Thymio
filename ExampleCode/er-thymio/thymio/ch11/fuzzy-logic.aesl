@@ -1,0 +1,169 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="3000" name="FAR_LOW"/>
+<constant value="3600" name="FAR_HIGH"/>
+<constant value="3300" name="CLOSING_LOW"/>
+<constant value="4300" name="CLOSING_HIGH"/>
+<constant value="4100" name="NEAR_LOW"/>
+<constant value="4350" name="NEAR_HIGH"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: fuzzy logic algorithm for approaching
+# Copyright 2014, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# See "Projects for the Thymio Robot in the Aseba Studio Environment"
+#   for a detailed description
+
+var state = 0      # The state 0 = off, 1 = on
+var value          # The value read from prox.horizontal[2]
+var premises[3]    # Certainties of premises: far, closing, near
+var consequents[5] # Certainties of consequents: very fast, fast, cruise, slow, stop
+var temp           # Temporary variable for computing premises
+
+var centers[5] = [4, 3, 2, 1, 0]
+                   # Centers of output membership functions
+
+var height         # Height (certainty) of an output membership function
+var width =  200   # Width of triangular membership function
+var area           # Area under a consequent membership function
+var mid            # Middle of membership function
+
+var accum_weighted # Accumulated weighted area over all rules
+var accum_areas    # Accumulated area over all rules
+var crisp          # Crisp output
+var i              # Loop index variable
+
+# Stop the algorithm and the motors
+sub stop
+  state = 0
+  motor.left.target  = 0
+  motor.right.target = 0
+
+# Forward button to start
+onevent button.forward
+  call leds.circle(0,0,0,0,0,0,0,0)
+  state = 1
+
+# Center button to stop
+onevent button.center
+  callsub stop
+
+# Fuzzification of the sensor input value
+#   Outputs for each linguistic variable are in "premises"
+#   Input membership functions: far, closing, near
+#   Certainties are scaled in the range 0 .. 100
+sub fuzzify
+  # Store center sensor value in a variable with a short name
+  value = prox.horizontal[2]
+
+  # "far" uses a saturated membership function
+  if value &lt;= FAR_LOW then premises[0] = 100
+  elseif value >= FAR_HIGH then premises[0] = 0
+  else 
+    call math.muldiv(temp, (value - FAR_LOW), 100, (FAR_HIGH - FAR_LOW))
+    premises[0] = 100 - temp
+  end
+
+  # "closing" uses a triangular membership function
+  mid = CLOSING_LOW + (CLOSING_HIGH-CLOSING_LOW)/2
+  if value &lt; CLOSING_LOW then premises[1] = 0
+  elseif value > CLOSING_HIGH then premises[1] = 0
+  elseif value &lt; mid then
+    call math.muldiv(temp, (value - CLOSING_LOW), 100, (mid - CLOSING_LOW))
+    premises[1] = temp
+  else
+    call math.muldiv(temp, (value - mid), 100, (CLOSING_HIGH - mid))
+    premises[1] = 100 - temp
+  end
+
+  # "near" uses a saturated membership function
+  if value >= NEAR_HIGH then premises[2] = 100
+  elseif value &lt;= NEAR_LOW then premises[2] = 0
+  else
+    call math.muldiv(temp, (value - NEAR_LOW), 100, (NEAR_HIGH - NEAR_LOW))
+    premises[2] = temp
+  end
+
+
+# Apply inference rules
+sub apply_rules
+  call math.fill(consequents, 0)
+
+  # Rule 1: if far then motor = very fast
+  if premises[0] != 0 then
+   	consequents[0] = premises[0]
+  end
+
+  # Rule 2: if far and closing then motor = fast
+  if premises[0] != 0 and premises[1] != 0 then
+   	call math.min(consequents[1], premises[0], premises[1])
+  end
+
+  # Rule 3: if closing then motor = cruise
+  if premises[1] != 0 then
+   	consequents[2] = premises[1]
+  end
+
+  # Rule 4: if closing and near then motor = slow
+  if premises[1] != 0 and premises[2] != 0 then
+   	call math.min(consequents[3], premises[1], premises[2])
+  end
+
+  # Rule 5: if near then motor = stop
+  if premises[2] != 0 then
+  	consequents[4] = premises[2]
+  end
+
+
+#  area = width * (height - height*height/2) 
+sub compute_area
+   call math.muldiv(area, width, height, 1)
+   call math.muldiv(temp, area, height, 200)
+   area -= temp
+   area /= 100
+
+# Defuzzify by computing the center of gravity
+#   Compute sum of areas of fuzzy output membership functions
+#     weighted by the centers of the functions
+#   Divide by sum of unweighted areas
+sub defuzzify
+  accum_weighted = 0
+  accum_areas = 0
+  for  i in 0:4 do
+      height = consequents[i]
+      callsub compute_area
+  	  accum_weighted += centers[i] * area
+  	  accum_areas += area
+  end
+  if accum_areas == 0 then accum_areas = 1 end
+
+  # Compute crisp output value
+  call math.muldiv(crisp, accum_weighted, 100, accum_areas)
+
+# Proximity event handler
+onevent prox
+  if state == 0 then return end
+  callsub fuzzify
+  callsub apply_rules
+  call leds.circle(premises[0]/3, premises[1]/3, premises[2]/3,
+                   consequents[0]/3, consequents[1]/3, consequents[2]/3,
+                   consequents[3]/3, consequents[4]/3)
+  callsub defuzzify
+  motor.left.target  =  crisp
+  motor.right.target =  crisp
+</node>
+
+
+</network>

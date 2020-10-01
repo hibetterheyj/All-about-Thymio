@@ -1,0 +1,168 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="32" name="SAMPLES"/>
+<constant value="30" name="SAMPLES_NO_EDGES"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Image enhancement
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements two algorithms for image enhancement
+# The Thymio moves over a pattern (as shown in the book)
+#   and stores samples of one of the ground proximity sensors
+# On a second pass, the top LEDs are lit
+#   if the light is below a threshold
+
+# Smoothing: an averaging filter is applied
+# Histogram manipulation: a specified fraction of the bins
+#   is used to determine the threshold
+
+# Experiment with the number of samples, the threshold,
+#   the timer period, the histogram fraction and
+#   the sensor scale factors!!!
+
+# Buttons:
+#   Center:   start data collection (and stop)
+#   Forward:  start second pass
+#   Backward: apply averaging filter
+#   Left:     compute threshold from histogram
+
+# SAMPLES: the number of samples taken
+# SAMPLES_NO_EDGES: for applying filters
+
+# Pixel array: a for input, b for processed pixels
+var a[SAMPLES]
+var b[SAMPLES]
+
+# Histogram: 10 bins for intensities normalized to 0--99
+var hist[10]
+
+var power        = 100 # Motor power
+var scale1       = 30  # Sensor scale factors
+var scale2       = 120
+var fraction     = 40  # Histogram fraction
+var period       = 120 # Timer period
+var thresh_fixed = 50  # Fixed threshold
+var threshold          # Fixed threshold or after histogram
+var state              # 0 = stop, 1 = first pass, 2 = second pass
+var sum                # For computing histogram
+var i                  # Loop index
+
+state = 0
+call leds.top(0,0,0)
+timer.period[0] = 0
+timer.period[1] = 0
+
+# Subroutine for stopping processing
+sub stop
+    state = 0
+    motor.left.target = 0
+    motor.right.target = 0
+    timer.period[0] = 0
+    state = 0
+  	 call leds.top(0,0,0)
+
+# Start first pass (initialize) and stop
+onevent button.center
+  if button.center != 0 then return end
+  if state == 0 then
+    i = 0
+    threshold = thresh_fixed
+    # Zero sample array
+    call math.fill(a,0)
+    motor.left.target  = power
+    motor.right.target = power
+    timer.period[0] = period
+    state = 1
+  else
+    callsub stop
+  end
+
+# Start second pass
+onevent button.forward
+  if button.forward != 0 then return end
+  timer.period[1] = period
+  motor.left.target = power
+  motor.right.target = power
+  i = 0
+  state = 2
+
+# Apply averaging filter
+# Be careful of edges of the sample array
+# Result in b so changing a[i] doesn't affect a[i+1]
+onevent button.backward
+  if button.backward != 0 then return end
+  # Copy a to b for compatibility with timer1 event handler
+  call math.copy(b,a)
+  for i in 1:SAMPLES_NO_EDGES do
+     b[i] = (a[i-1] + a[i] + a[i+1]) / 3
+  end
+
+# Compute the histogram
+onevent button.left
+  if button.left != 0 then return end
+  # Copy a to b for compatibility with timer1 event handler
+  call math.copy(b,a)
+  # Zero bin array
+  call math.fill(hist,0)
+
+  # Compute histogram
+  for i in 1:SAMPLES do
+     # Sample values over 100 placed in last bin
+     if a[i-1] > 100 then a[i-1] = 99 end
+     # Divide value by 10 to get bin number
+     hist[a[i-1] / 10] += 1
+  end
+
+  # Compute sum of bins, stopping when the
+  #   sum is greater than a specified fraction
+  sum = 0
+  i = 0
+  while sum &lt; SAMPLES*10 / fraction do
+  	 sum += hist[i]
+  	 i += 1
+  end
+  # Use the index of that bin to set the threshold
+  threshold = i * 10 + 5
+
+# Timer for first pass
+onevent timer0
+  if state == 0 then return end
+  # Stop when sample array is filled
+  if i >= SAMPLES then
+    callsub stop
+    # Copy a to b for compatibility with timer1 event handler
+    call math.copy(b,a)
+    return
+  end
+  # Scale the sample and store in the array
+  a[i] = (prox.ground.delta[0] * scale1) / scale2
+  i += 1
+
+# Timer for second pass
+onevent timer1
+  if state != 2 then return end
+  if i >= SAMPLES then callsub stop return end
+  # Turn LED on / off if below / above threshold
+  if b[i] &lt; threshold then
+  	 call leds.top(32,32,32)
+  else
+  	 call leds.top(0,0,0)
+  end
+  i += 1
+</node>
+
+
+</network>

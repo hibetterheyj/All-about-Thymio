@@ -1,0 +1,190 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="120" name="THRESHOLD"/>
+<constant value="40" name="CHANGE"/>
+<constant value="500" name="ACCEL"/>
+<constant value="300" name="MOTOR"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: measure the acceleration of the robot
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+#
+# A rectangle of a known length made of black tape.
+# Place the Thymio before the start tape and touch the center button 
+# The Thymio approaches the start tape and when it reaches its end
+# it moves rapidly.
+# The side tapes ensure that the Thymio moves straight.
+# Every ACCEL ms the motor power is increased.
+# After the motor power has run at maximum (500) for ACCEL
+# seconds, the motor stops.
+# The circle leds display the motor power.
+#
+#   ||--------------------------------||
+# * ||                                ||
+#   ||--------------------------------||
+#  Start                             End
+#
+
+# Constants
+#   THRESHOLD for sensing the tapes
+#   CHANGE    percentage change of motor power for steering
+#   ACCEL     time between power increases
+#   MOTOR     motor power
+
+# Variables
+var motor          # The base value of the motor power
+var motor_change   # The amount to change when approaching and turning
+
+# States:
+#   0 = off
+#   1 = find start tape
+#   2 = skip start tape
+#   3 = drive straight
+var state
+
+# Counter of timer events (100ms = 10 times a second)
+var time
+
+# Initialization
+state = 0
+call leds.buttons(32,0,0,0)
+timer.period[0] = 100  # 100 ms = 0.1 seconds
+timer.period[1] = ACCEL
+motor = MOTOR
+motor_change = (motor * CHANGE)/100
+call leds.circle(0,0,0,0,0,0,0,0)
+motor.left.target = 0
+motor.right.target = 0
+
+# Set the circle leds to indicate the motor power
+sub set_circle_leds
+  if motor/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/100==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor/100==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor/100==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor/100==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor/100==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# Stop the motors and set state to 0
+sub stop
+  state = 0
+  motor = 0
+  motor_change = (motor * CHANGE)/100
+  motor.left.target  = motor
+  motor.right.target = motor
+  callsub set_circle_leds
+  call leds.buttons(32,0,0,0)
+
+# When center button released
+onevent button.center
+  if  button.center == 0 then
+    # If off, set state to 1 (on) and creep forward to find start tape
+    if  state == 0 then
+      state = 1
+      call leds.buttons(0,32,0,0)
+      # Creep forward to find the starting line
+      motor = MOTOR
+      motor_change = (motor * CHANGE)/100
+      motor.left.target  = motor - motor_change
+      motor.right.target = motor - motor_change
+    #   else if state is on, call stop
+    else
+      callsub stop
+    end
+  end
+
+# Drive straight between the tapes
+sub drive_straight
+  # If one of the ground sensors finds the tape
+  #   turn the robot in the appropriate direction
+  if  prox.ground.delta[0] &lt; THRESHOLD then
+  	 motor.left.target  = motor + motor * motor_change
+  	 motor.right.target = motor - motor * motor_change
+  elseif  prox.ground.delta[1] &lt; THRESHOLD then
+  	 motor.left.target  = motor - motor * motor_change
+  	 motor.right.target = motor + motor * motor_change
+  else
+  # Otherwise, drive straight
+     motor.left.target  = motor
+     motor.right.target = motor
+  end
+
+# Start tape found
+sub start_found
+  # Change state to look for end of start tape
+  if  prox.ground.delta[0] &lt; THRESHOLD and
+      prox.ground.delta[1] &lt; THRESHOLD then
+  	 state = 2
+     call leds.buttons(0,0,32,0)
+  end 
+
+# End of start tape found
+sub end_of_start_found
+  if  prox.ground.delta[0] > THRESHOLD and
+      prox.ground.delta[1] > THRESHOLD then
+    state = 3
+    call leds.buttons(0,0,0,32)
+    # Change state to 3 (straight)
+    state = 3
+    # Initialize motor power to 0
+    motor = 0
+    motor_change = (motor * CHANGE)/100
+    motor.left.target  = motor
+    motor.right.target = motor
+    callsub set_circle_leds
+  end
+
+# Proximity event occurs, call subroutine depending on the state
+onevent prox
+  # Check if the start tape has been found
+  if  state == 1 then
+	callsub start_found
+  # Check if the end of the start tape has been found
+  elseif state == 2 then
+    callsub end_of_start_found
+  # Drive straight until stop tape sets state to 0
+  elseif state == 3 then
+    callsub drive_straight
+  end
+  
+# Timer0 event: increment the time counter
+onevent timer0
+  if state == 3 then
+    time = time + 1
+  end
+
+# Timer1 event
+onevent timer1
+  # When in state 3 (straight)
+  if  state == 3 then
+    # If motor = 0, initialize time counter and set motor to 100
+    if  motor == 0 then
+      time = 0
+      motor = 100
+    # If motor &lt; 500, increment by 100
+    elseif motor &lt; 500 then
+  	  motor = motor + 100
+  	# If motor == 500, stop
+    elseif motor == 500 then
+      callsub stop
+    end
+    motor_change = (motor * CHANGE)/100
+    callsub set_circle_leds
+  end
+</node>
+
+
+</network>

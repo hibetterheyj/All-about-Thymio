@@ -1,0 +1,116 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="32" name="LED"/>
+<constant value="250" name="THRESHOLD"/>
+<constant value="9" name="P_HIT"/>
+<constant value="1" name="P_MISS"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: localization with uncertainty in the sensors
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# See "Projects for the Thymio Robot in the Aseba Studio Environment"
+#   for a detailed description
+
+# Constants
+#  LED       - scale factor for displaying beliefs in leds
+#  THRESHOLD - value below black is detected
+#  P_HIT     - probability of detecting black when on black
+#              or white when on white
+#  P_MISS    - probability of detecting black when on white
+#              or white when on black
+
+# The world: 2 black, 2 white, 3 black, 1 white
+var world[8]   = [1, 1, 0, 0, 1, 1, 1, 0]
+
+# Beliefs where the black squares are
+var beliefs[8]
+
+var state    # 0 = sense, 1 = move
+var i        # Loop index
+var hit      # 1 = on black, 0 = on white
+var temp     # Variable for cyclic move
+var sum      # Sum of beliefs for normalization
+
+# Display the beliefs in the circle leds
+sub display_beliefs
+    call leds.circle(
+      beliefs[0]/LED, beliefs[1]/LED, beliefs[2]/LED, beliefs[3]/LED,
+      beliefs[4]/LED, beliefs[5]/LED, beliefs[6]/LED, beliefs[7]/LED)
+
+# Initialize when center button is touched
+onevent button.center
+  when button.center == 0 do
+    call math.fill(beliefs, 1000/8)
+    callsub display_beliefs
+    state = 0
+  end
+
+# Sense
+sub sense
+  # Check if on black (1) or not (0)
+  if  prox.ground.delta[0] &lt; THRESHOLD and
+      prox.ground.delta[1] &lt; THRESHOLD then
+  	hit = 1
+  else
+  	hit = 0
+  end
+
+  # If hit matches world at each position
+  #   multiply the beliefs by the hit/miss probabilities
+  for i in 0:7 do
+  	if  (hit == 1 and world[i] == 1) or
+  	    (hit == 0 and world[i] == 0) then
+      call math.muldiv(beliefs[i], beliefs[i], P_HIT, 10)
+    else
+      call math.muldiv(beliefs[i], beliefs[i], P_MISS, 10)
+  	end
+  end
+
+  # Compute the sum of the beliefs
+  sum = 0
+  for i in 0:7 do
+  	sum += beliefs[i]
+  end
+
+  # Normalize
+  for  i in 0:7 do
+    call math.muldiv(beliefs[i], beliefs[i], 1000, sum)
+  end
+
+# Move right cyclic
+sub move
+  temp = beliefs[7]
+  for i in 7:1 step -1 do
+  	beliefs[i] = beliefs[i-1]
+  end
+  beliefs[0] = temp
+
+# Touch button forward to repeat sense -> move -> ...
+onevent button.forward
+  when button.forward == 0 do
+    if state == 0 then
+      callsub sense
+      state = 1
+    else    	
+      callsub move
+      state = 0
+    end
+    callsub display_beliefs
+  end
+</node>
+
+
+</network>

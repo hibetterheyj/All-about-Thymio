@@ -1,0 +1,138 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: ANN for spatial processing
+# Copyright 2017 by Francesco Mondada and Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements spatial processing using an ANN
+#   that is broad: many neurons in the input layer,
+#   but shallow
+# The robot must turn towards any _single_ sensor that
+#   detects an obstacle
+# If many / all sensors detect the obstacle the robot
+#   has three modes of behavior:
+#     stop, move forwards, move backwards
+# To move forwards or backwards an additional neuron
+#   computes the sum of all the inputs and
+#   multiplies by a coefficient
+
+# The ANN is two-layered:
+#   The neurons in the first layer read the sensor inputs x[0..4]
+#     and output intermediate values u[0..4] to the neurons of
+#     the second layer
+#   In the second layer, there is a neuron for each motor,
+#     and each neuron receives all the intermediate values
+
+# The center button starts and stops the robot
+
+# The forward button cycles between the three modes
+# Mode is indicated by the circle leds
+
+# Weights of neuron inputs
+var w0[] = [ 4,-4, 0, 0, 0] 
+var w1[] = [-2, 4,-2, 0, 0] 
+var w2[] = [ 0,-2, 4,-2, 0] 
+var w3[] = [ 0, 0,-2, 4,-2] 
+var w4[] = [ 0, 0, 0,-4, 4]
+
+# Weights of the intermediate values to obtain the motor powers
+var m0[] = [-7,-4, 3, 4, 7]
+var m1[] = [ 7, 4, 3,-4,-7]
+
+# Neuron inputs, intermediates and outputs
+var x[5]
+var u[5]
+var y[2]
+
+# Scale factors for sensors and motors
+var sensor_scale   = 100
+var motor_scale    =   2
+
+# Motor bias
+# bias_index is the mode:
+#  0 = stop at wall, 1 = go forwards, 2 = go backwards
+var bias_index = 0
+
+# The bias_index is used to select from bias_coefficients
+var bias_coefficients[] = [0,1,-2]
+
+# motor_bias is the sum of the inputs times the bias coefficient
+var motor_bias
+
+# State for start and stop
+var state = 0
+
+# Loop index
+var i
+
+timer.period[0] = 100    # Milliseconds
+call leds.circle(32,0,0,0,0,0,0,0)
+
+# Toggle start and stop with center button
+onevent button.center
+  if state == 0 then
+    state = 1
+  else
+    state = 0
+    motor.left.target  = 0
+    motor.right.target = 0
+  end
+
+# Set mode with forward button
+onevent button.forward
+  bias_index = (bias_index+1) % 3
+  if bias_index == 0 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if bias_index == 1 then call leds.circle(0,32,0,0,0,0,0,0) end
+  if bias_index == 2 then call leds.circle(0,0,32,0,0,0,0,0) end
+
+# Activiate neurons periodically
+onevent timer0
+  # Do nothing if stopped
+  if state == 0 then return end
+
+  # Get and scale inputs
+  x[0] = prox.horizontal[0]/sensor_scale
+  x[1] = prox.horizontal[1]/sensor_scale
+  x[2] = prox.horizontal[2]/sensor_scale
+  x[3] = prox.horizontal[3]/sensor_scale
+  x[4] = prox.horizontal[4]/sensor_scale
+
+  # Compute intermediate values
+  u[0] = x[0]*w0[0]+x[1]*w0[1]+x[2]*w0[2]+x[3]*w0[3]+x[4]*w0[4] 
+  u[1] = x[0]*w1[0]+x[1]*w1[1]+x[2]*w1[2]+x[3]*w1[3]+x[4]*w1[4] 
+  u[2] = x[0]*w2[0]+x[1]*w2[1]+x[2]*w2[2]+x[3]*w2[3]+x[4]*w2[4] 
+  u[3] = x[0]*w3[0]+x[1]*w3[1]+x[2]*w3[2]+x[3]*w3[3]+x[4]*w3[4] 
+  u[4] = x[0]*w4[0]+x[1]*w4[1]+x[2]*w4[2]+x[3]*w4[3]+x[4]*w4[4] 
+  # Replace negative values by zero
+  for i in 0:4 do
+    if u[i] &lt; 0 then u[i] = 0 end
+  end
+
+  # Compute outputs
+  y[0] = u[0]*m0[0]+u[1]*m0[1]+u[2]*m0[2]+u[3]*m0[3]+u[4]*m0[4] 
+  y[1] = u[0]*m1[0]+u[1]*m1[1]+u[2]*m1[2]+u[3]*m1[3]+u[4]*m1[4] 
+
+  # Compute motor bias
+  motor_bias = (x[0]+x[1]+x[2]+x[3]+x[4]) * 
+                bias_coefficients[bias_index]
+
+  # Set motor powers using motor_bias and motor_scale
+  motor.left.target  = (y[0] + motor_bias) / motor_scale
+  motor.right.target = (y[1] + motor_bias) / motor_scale
+</node>
+
+
+</network>

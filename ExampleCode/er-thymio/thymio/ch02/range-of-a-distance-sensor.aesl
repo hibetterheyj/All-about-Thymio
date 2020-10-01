@@ -1,0 +1,52 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: range of a distance sensor
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Measure distance
+# Display prox.horizontal[2] in "auto" in the variables pane (left)
+# Display computed distance circle leds
+#   after calibrating the array proximity
+
+# The array contains the values of the horizontal proximity
+#   sensor for an object at 2, 4, ..., 16 centimetrs
+var proximity[] = [4550, 4400, 3900, 3400, 3000, 2700, 2400, 2100, 0]
+var distance  # The distance corresponding to the value
+
+call leds.circle(0,0,0,0,0,0,0,0)
+
+# Set the circle leds to indicate the distance
+#   Use 31 instead of 32 so as not to overflow
+sub set_circle_leds
+  call leds.circle(
+    (distance/1)*31, (distance/2)*31, (distance/3)*31, (distance/4)*31,
+    (distance/5)*31, (distance/6)*31, (distance/7)*31, (distance/8)*31)
+
+# Search the array until a value is found
+#   that is not greater than the measured value
+#   of the horizontal sensor
+# Call set_circle_leds to display the distance
+onevent prox
+  distance = 0
+  while proximity[distance] > prox.horizontal[2] do
+    distance++
+  end
+  callsub set_circle_leds
+</node>
+
+
+</network>

@@ -1,0 +1,50 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="250" name="MOTOR_BIAS"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: Braitenberg vehicle - explorer
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Touch center button to start and stop
+# Motors connected directly to sensors
+#   so that the robot turns away from object
+
+var state = 0
+
+motor.left.target = 0
+motor.right.target = 0
+
+# When center button released change state
+#   and stop the motors in state 0
+onevent button.center
+  if  button.center == 0 then
+    state = 1 - state
+    if state == 0 then
+      motor.left.target  = 0
+      motor.right.target = 0
+    end
+  end
+
+# Proximity event handler:
+#   set left/right motor speeds to value of negative right/left sensors
+onevent prox
+  if  state == 0 then return end
+  motor.left.target = MOTOR_BIAS - prox.horizontal[4] / 10
+  motor.right.target = MOTOR_BIAS - prox.horizontal[0] / 10
+  </node>
+
+
+</network>

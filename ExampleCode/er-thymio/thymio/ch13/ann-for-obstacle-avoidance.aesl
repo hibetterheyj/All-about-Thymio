@@ -1,0 +1,81 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: ANN for obstacle avoidance
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements obstacle avoidance using an ANN
+# The inputs x1, x2, x3 are taken from
+#   the left, center and right proximity sensors and scaled
+# There is a constant input of 1 which is scaled to match
+#   the scaled sensor values
+# The inputs are multiplied by the weights as shown in the book
+#   and used to set the motor powers
+# The center button starts and stops the robot
+
+# Weights of neuron inputs
+var w_fwd  = 20  # Reasonable forward speed
+var w_back = 40  # > fwd so robot will move backwards
+var w_neg  = 30  # also > fwd
+var w_pos  = 10  # amplifies fwd so not too large
+
+# Neuron inputs and outputs
+var x1
+var x2
+var x3
+var y1
+var y2
+
+# Scale factors for sensors and constant factor
+var sensor_scale   = 200
+var constant_scale =  20
+
+# State for start and stop
+var state = 0
+
+timer.period[0] = 100    # Milliseconds
+
+# Toggle start and stop with center button
+onevent button.center
+  when button.center == 0 do
+    if state == 0 then
+    	state = 1
+    else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+    end
+  end
+
+# Activiate neurons periodically
+onevent timer0
+  # Do nothing if stopped
+  if state == 0 then return end
+
+  # Get and scale inputs
+  x1 = prox.horizontal[0]/sensor_scale
+  x2 = prox.horizontal[2]/sensor_scale
+  x3 = prox.horizontal[4]/sensor_scale
+
+  # Compute outputs of neurons and set motor powers
+  y1 = 1*constant_scale*w_fwd + x1*w_pos - x2*w_back - x3*w_neg
+  y2 = 1*constant_scale*w_fwd - x1*w_neg - x2*w_back + x3*w_pos
+  motor.left.target  = y1
+  motor.right.target = y2
+</node>
+
+
+</network>

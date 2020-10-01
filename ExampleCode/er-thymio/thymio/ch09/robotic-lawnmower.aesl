@@ -1,0 +1,159 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="5000" name="LONG_PERIOD"/>
+<constant value="400" name="SHORT_PERIOD"/>
+<constant value="1250" name="TURN_PERIOD"/>
+<constant value="200" name="MOTOR"/>
+<constant value="200" name="MOTOR_CHANGE"/>
+<constant value="500" name="PERIOD_DELTA"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: a robotic lawnmower
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Center button to start, stop
+# Show state in circle leds
+
+# Constants
+# Adjust the constants to fit your robot and layout
+
+#   LONG_PERIOD   period of initial sweep
+#   SHORT_PERIOD  period of other sweeps
+#   TURN_PERIOD   period of turns
+#   PERIOD_DELTA  for making small changes in the periods
+#   MOTOR         motor power for moving straight
+#   MOTOR_CHANGE  change in motor power for turns
+
+# 0=off, 1=straight, 2=turn, 3=short, 4=return
+var state
+
+# 0=first turn, 1=second turn
+var turn
+
+# Direction of turn: -1=left, 1=right
+var direction
+
+# Count of sweeps
+var count
+
+state = 0
+timer.period[0] = 0
+call leds.circle(0,0,0,0,0,0,0,0)
+call leds.top(0,0,0)
+
+# Display state in circle leds
+sub set_circle_leds
+  if state==0 then call leds.circle(0,0,0,0,0,0,0,0)    end
+  if state==1 then call leds.circle(32,0,0,0,0,0,0,0)   end
+  if state==2 then call leds.circle(32,32,0,0,0,0,0,0)  end
+  if state==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if state==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if state==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# Display sweep count in top leds
+sub set_top_leds
+  if count == 0 then call leds.top(0,0,0)    end
+  if count == 1 then call leds.top(32,0,0)   end
+  if count == 2 then call leds.top(0,32,0)   end
+  if count == 3 then call leds.top(0,0,32)   end
+  if count == 4 then call leds.top(32,32,0) end
+  if count == 5 then call leds.top(32,32,32) end
+
+sub stop
+  state = 0
+  count = 0
+  motor.left.target = 0
+  motor.right.target = 0
+  timer.period[0] = 0
+  callsub set_circle_leds
+  callsub set_top_leds
+
+onevent buttons
+	when button.center == 1 do
+     if state == 0 then
+       state = 1
+	    callsub set_circle_leds
+	    direction = -1
+	    count = 0
+       callsub set_top_leds
+       motor.left.target = MOTOR
+       motor.right.target = MOTOR
+       timer.period[0] = LONG_PERIOD
+	  else
+	    callsub stop
+	  end
+	end
+
+onevent timer0
+  # State 0: do nothing
+  if state == 0 then
+    return
+  # State 1: end of long arm, start turn=1
+  elseif state == 1 then
+    # Count sweeps and change direction after four sweeps
+    count++
+    callsub set_top_leds
+    if count == 4 then
+    	direction = -direction
+    end
+    motor.left.target = MOTOR + direction*MOTOR_CHANGE
+    motor.right.target = MOTOR - direction*MOTOR_CHANGE
+    state = 2
+    turn = 1
+    timer.period[0] = TURN_PERIOD
+  # State 2: end of turn
+  #   start short arm if turn=1
+  #   else start long arm if turn=2
+  elseif state == 2 then
+    if turn == 1 then
+      motor.left.target = MOTOR
+      motor.right.target = MOTOR
+      turn = 1
+      # After four sweeps, return to base
+      if count == 4 then
+        state = 4
+        timer.period[0] = SHORT_PERIOD*9
+      else
+        state = 3
+        timer.period[0] = SHORT_PERIOD
+      end
+    else
+      motor.left.target = MOTOR
+      motor.right.target = MOTOR
+      state = 1
+      # change direction of turn
+      direction = - direction
+      if count == 4 then
+        timer.period[0] = LONG_PERIOD-PERIOD_DELTA
+      else
+        timer.period[0] = LONG_PERIOD-2*PERIOD_DELTA
+      end
+    end
+  # state 3: end of short arm, start turn=2
+  elseif state == 3 then
+    motor.left.target = MOTOR + direction*MOTOR_CHANGE
+    motor.right.target = MOTOR - direction*MOTOR_CHANGE
+    state = 2
+    turn = 2
+    timer.period[0] = TURN_PERIOD
+  # Returned to base, stop
+  elseif state == 4 then
+    callsub stop
+  end
+  callsub set_circle_leds
+ </node>
+
+
+</network>

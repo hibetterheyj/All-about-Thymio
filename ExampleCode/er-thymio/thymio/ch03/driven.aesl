@@ -1,0 +1,38 @@
+<!DOCTYPE aesl-source>
+<network>
+<node nodeId="1" name="thymio-II"># reset outputs
+call sound.system(-1)
+call leds.top(0,0,0)
+call leds.bottom.left(0,0,0)
+call leds.bottom.right(0,0,0)
+call leds.circle(0,0,0,0,0,0,0,0)
+
+onevent prox
+	if prox.horizontal[3] > 2000 then
+		motor.left.target = 300
+		motor.right.target = 0
+	end
+	if prox.horizontal[1] > 2000 then
+		motor.left.target = 0
+		motor.right.target = 300
+	end
+<toolsPlugins>
+<ThymioVisualProgramming>
+<vplroot xml-format-version="1">
+<settings color-scheme="0"/>
+<program advanced_mode="0">
+<set>
+<block value0="0" value1="0" value2="0" value3="1" value4="0" value5="0" value6="0" value7="1000" type="event" value8="2000" name="prox"/>
+<block value0="300" value1="0" type="action" name="move"/>
+</set>
+<set>
+<block value0="0" value1="1" value2="0" value3="0" value4="0" value5="0" value6="0" value7="1000" type="event" value8="2000" name="prox"/>
+<block value0="0" value1="300" type="action" name="move"/>
+</set>
+<set/>
+</program>
+</vplroot>
+</ThymioVisualProgramming>
+</toolsPlugins>
+</node>
+</network>

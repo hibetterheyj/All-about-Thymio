@@ -1,0 +1,227 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="150" name="THRESHOLD"/>
+<constant value="25" name="CHANGE"/>
+<constant value="100" name="DIFF"/>
+<constant value="20" name="TIMER0"/>
+<constant value="100" name="INCREMENT"/>
+<constant value="1000" name="OBSTACLE"/>
+<constant value="400" name="TIMERTURN"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Line following with obstacle avoidance
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Left, right buttons set motor power
+# Center button to start, stop
+# When line is lost, circle to find it
+#   turning in the last direction
+# When obstacle encountered, avoid it to the left
+#   Adjust timer1 periods and factors as needed
+# LEDS
+#   circle = motor power
+#   buttons = direction
+#   top = green=off to left, blue=off to right, red=obstacle avoidance
+
+# Constants
+#  THRESHOLD for sensing the tape
+#  OBSTACLE  threshold for sensing obstacle
+#  DIFF      difference to remember last deviation
+#  CHANGE    percentage change of motors for steering
+#  TIMER0    timer for computing direction
+#  TIMER1    timer for avoiding obstacle
+
+# Variables
+var motor          # The base value of the motor power
+var motor_change   # The amount to change when approaching and turning
+
+var state # 0 = off, 1 = on, 2 = avoid obstacle
+var turn  # substate turn for obstacle avoidance
+
+var diff  # The difference between the two ground sensors
+var dir   # The last direction: 1 = right, -1 = left
+
+# Initialization
+motor = 0
+motor_change = (motor * CHANGE)/100
+state = 0
+dir = 0
+timer.period[0] = TIMER0
+call leds.circle(0,0,0,0,0,0,0,0)
+call leds.buttons(0,0,0,0)
+call leds.top(0, 0, 0)
+
+# Set the circle leds to indicate the motor power
+sub set_circle_leds
+  if motor/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/100==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor/100==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor/100==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor/100==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor/100==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# Left and right button event handlers
+#   Increase or decrease motor power within 0-500
+onevent button.left
+  if  button.left == 0 then
+    motor = motor - INCREMENT
+    if  motor &lt; 0 then motor = 0 end
+    motor_change = (motor * CHANGE)/100
+    callsub set_circle_leds
+  end
+
+onevent button.right
+  if  button.right == 0 then
+    motor = motor + INCREMENT
+    if  motor > 500 then motor = 500 end
+    motor_change = (motor * CHANGE)/100
+    callsub set_circle_leds
+  end
+
+# When center button released
+onevent button.center
+  when button.center == 0 do
+    # If off, set state to 1 (on) and dirve forwards
+    if  state == 0 then
+      state = 1
+      motor.left.target  = motor
+      motor.right.target = motor
+    #   else if state is on, call stop the motors
+    else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+    end
+    motor_change = (motor * CHANGE)/100
+    callsub set_circle_leds
+  end
+
+# Timer event occurs
+onevent timer0
+  # Compute difference between the values of the ground sensors
+  diff = prox.ground.delta[0] - prox.ground.delta[1]
+  # If absolute value of the difference is above the threshold
+  if  abs diff >= DIFF then
+    # Compute direction according to the sign of the difference
+  	if  diff > 0 then
+  	  dir = 1
+      call leds.top(0, 32, 0)
+    else
+      dir = -1
+  	  call leds.top(0, 0, 32)
+  	end
+  else
+    call leds.top(0, 0, 0)
+  end
+
+# Follow the line, turning as necessary
+sub drive
+  # If both sensors no longer detect the tape
+  if  prox.ground.delta[0] > THRESHOLD and
+      prox.ground.delta[1] > THRESHOLD then
+    # Turn left or right depending on the value in dir
+    if  dir == 1 then
+      motor.left.target  = motor + motor_change
+  	  motor.right.target = motor - motor_change
+      call leds.buttons(0,32,0,0)
+    else    	
+  	  motor.left.target  = motor - motor_change
+  	  motor.right.target = motor + motor_change
+      call leds.buttons(0,0,0,32)
+    end
+  # If one of the ground sensors finds the tape
+  #   turn the robot in the appropriate direction
+  elseif  prox.ground.delta[0] > THRESHOLD then
+  	 motor.left.target  = motor + motor_change
+  	 motor.right.target = motor - motor_change
+     call leds.buttons(0,32,0,0)
+  elseif  prox.ground.delta[1] > THRESHOLD then
+  	 motor.left.target  = motor - motor_change
+  	 motor.right.target = motor + motor_change
+     call leds.buttons(0,0,0,32)
+  # Otherwise, drive straight
+  else
+  	 motor.left.target  = motor
+  	 motor.right.target = motor
+    call leds.buttons(32,0,0,0)
+  end
+
+# Proximity event occurs, call subroutine drive
+#    unless obstacle detected
+onevent prox
+  if  state == 1 then
+    # Obstacle detected
+    # Change state and turn left
+    if prox.horizontal[2] > OBSTACLE then
+      timer.period[0] = 0
+      timer.period[1] = (5-motor/100)*TIMERTURN
+      state = 2
+      turn = 0
+      call leds.top(32, 0, 0)
+      motor.left.target  = -motor
+      motor.right.target = motor
+    else
+      callsub drive
+    end
+  end
+
+# For obstacle avoidance
+#   
+onevent timer1
+  if state != 2 then return end
+  # Go straight
+  if turn == 0 then
+    motor.left.target  = motor
+    motor.right.target = motor
+    timer.period[1] = 2*(5-motor/100)*TIMERTURN
+  # Turn right
+  elseif turn == 1 then
+    motor.left.target  = motor
+    motor.right.target = -motor
+    timer.period[1] = (5-motor/100)*TIMERTURN
+  # Go straight
+  elseif turn == 2 then
+    motor.left.target  = motor
+    motor.right.target = motor
+    timer.period[1] = 3*(5-motor/100)*TIMERTURN
+  # Turn right
+  elseif turn == 3 then
+    motor.left.target  = motor
+    motor.right.target = -motor
+    timer.period[1] = (5-motor/100)*TIMERTURN
+  # Go straight
+  elseif turn == 4 then
+    motor.left.target  = motor
+    motor.right.target = motor
+    timer.period[1] = 2*(5-motor/100)*TIMERTURN
+  # Turn left
+  elseif turn == 5 then
+    motor.left.target  = -motor
+    motor.right.target = motor
+    timer.period[1] = (5-motor/100)*TIMERTURN
+  # Obstacle avoided, turn back to line following
+  elseif turn == 6 then
+    motor.left.target  = motor
+    motor.right.target = motor
+    timer.period[0] = TIMER0
+    timer.period[1] = 0
+    state = 1
+    call leds.top(0, 0, 0)
+  end
+  turn++
+</node>
+
+
+</network>

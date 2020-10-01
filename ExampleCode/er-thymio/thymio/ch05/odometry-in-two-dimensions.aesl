@@ -1,0 +1,103 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="30" name="TIME"/>
+<constant value="95" name="BASELINE"/>
+<constant value="200" name="LEFT"/>
+<constant value="300" name="RIGHT"/>
+<constant value="32" name="SPEED"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: odometry in two dimensions
+# Copyright 2014, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Odometry in two dimensions
+# See "Projects for the Thymio Robot in the Aseba Studio Environment"
+#   for a detailed description
+
+# Constants
+#   TIME      Duration of run (tenths of seconds)
+#   BASELINE  Distance between wheels (millimeters)
+#   LEFT      Power setting of left wheel
+#   RIGHT     Power setting of right wheel
+#   SPEED     speed of robot per 100 power setting (*10)
+
+var dleft     # Distance traveled by the left wheel
+var dright    # Distance traveled by the right wheel
+var dcenter   # Distance traveled by the center of the robot
+var theta     # Change of heading
+var dx        # Change of x
+var dy        # Change of y
+var tcos      # sin of theta
+var tsin      # cosine of theta
+var state     # 0 = off, 1 = run
+var time      # Counter of tenths of seconds
+
+# Set timer to expire every tenth of a second
+timer.period[0] = 100
+
+# Touch forward button to start run
+# Touch center button to stop run (not used)
+onevent buttons
+  when button.forward == 0 do
+    state = 1
+    time = 0
+    motor.left.target =  LEFT
+    motor.right.target = RIGHT
+  end
+  when button.center == 0 do
+    motor.left.target = 0
+    motor.right.target = 0
+  end
+
+# Compute the odometry
+sub odometry
+  # Distances traveled by left and right motors
+  # Factor is: 100 for motor powers and
+  #   10 each for power to speed and time in tenths of a second
+  # Center distance is the average of the left and right
+  call math.muldiv(dleft, motor.left.speed, SPEED*TIME, 100*10*10)
+  call math.muldiv(dright, motor.right.speed, SPEED*TIME, 100*10*10)
+  dcenter = (dleft+dright)/2
+
+  # Change of heading and its sin and cosine
+  # Factor is 10 for axle width in millimeters and
+  #   100 for hundredths of radians
+  theta = ((dright-dleft)*10*100)/BASELINE
+  # Factor is 100 which is approximately 16-bit 32767 / pi 314
+  call math.cos(tcos, theta*100)
+  call math.sin(tsin, theta*100)
+
+  # Change of x and y
+  # Factor is 16-bit 32767 for sin/cos = 1.0
+  call math.muldiv(dx, dcenter, -tsin, 32767)
+  call math.muldiv(dy, dcenter, tcos, 32767)
+
+# Every tenth of a second, increment the counter time
+# When time = TIME, compute the odometry and stop the motors
+onevent timer0
+  if  state == 0 then
+  	return
+  end
+  time++
+  if  time == TIME then
+  	callsub odometry
+    state = 0
+    motor.left.target = 0
+    motor.right.target = 0
+  end
+</node>
+
+
+</network>

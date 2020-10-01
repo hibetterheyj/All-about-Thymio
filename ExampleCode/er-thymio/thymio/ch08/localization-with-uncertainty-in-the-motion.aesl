@@ -1,0 +1,153 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="32" name="LED"/>
+<constant value="250" name="THRESHOLD"/>
+<constant value="9" name="P_HIT"/>
+<constant value="1" name="P_MISS"/>
+<constant value="1" name="P_0"/>
+<constant value="8" name="P_1"/>
+<constant value="1" name="P_2"/>
+<constant value="200" name="MOTOR"/>
+<constant value="1600" name="TIMER"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: localization with uncertainty in the motion
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# See "Projects for the Thymio Robot in the Aseba Studio Environment"
+#   for a detailed description
+
+# Constants
+#  LED       - scale factor for displaying beliefs in leds
+#  THRESHOLD - value below black is detected
+#  P_HIT     - probability of detecting black when on black
+#              or white when on white
+#  P_MISS    - probability of detecting black when on white
+#              or white when on black
+
+# The world: 2 black, 2 white, 3 black, 1 white
+var world[8]   = [1, 1, 0, 0, 1, 1, 1, 0]
+
+# Beliefs where the black squares are
+var beliefs[8]
+
+# Temporary array for computing motion with uncertainty
+var save[8]
+
+var state    # 0 = sense, 1 = move
+var i        # Loop index
+var hit      # 1 = on black, 0 = on white
+var temp     # Variable for cyclic move
+var sum      # Sum of beliefs for normalization
+
+# Display the beliefs in the circle leds
+sub display_beliefs
+    call leds.circle(
+      beliefs[0]/LED, beliefs[1]/LED, beliefs[2]/LED, beliefs[3]/LED,
+      beliefs[4]/LED, beliefs[5]/LED, beliefs[6]/LED, beliefs[7]/LED)
+
+# Initialize when center button is touched
+onevent button.center
+  when button.center == 0 do
+    motor.left.target = 0
+    motor.right.target = 0
+    call math.fill(beliefs, 1000/8)
+    callsub display_beliefs
+    state = 0
+  end
+
+# Touch button forward to start
+onevent button.forward
+  when button.forward == 0 do
+    if state == 0 then
+      state = 1
+      callsub display_beliefs
+      timer.period[0] = TIMER
+      motor.left.target = MOTOR
+      motor.right.target = MOTOR
+    else
+      state = 0
+      motor.left.target = 0
+      motor.right.target = 0  
+    end
+  end
+
+# Normalize
+sub normalize
+  # Compute the sum of the beliefs
+  sum = 0
+  for i in 0:7 do
+  	sum += beliefs[i]
+  end
+
+  # Normalize
+  for  i in 0:7 do
+    call math.muldiv(beliefs[i], beliefs[i], 1000, sum)
+  end
+
+# Sense
+sub sense
+  # Check if on black (1) or not (0)
+  if  prox.ground.delta[0] &lt; THRESHOLD and
+      prox.ground.delta[1] &lt; THRESHOLD then
+  	hit = 1
+  else
+  	hit = 0
+  end
+
+  # If hit matches world at each position
+  #   multiply the beliefs by the hit/miss probabilities
+  for i in 0:7 do
+  	if  (hit == 1 and world[i] == 1) or
+  	    (hit == 0 and world[i] == 0)   then
+      call math.muldiv(beliefs[i], beliefs[i], P_HIT, 10)
+    else
+      call math.muldiv(beliefs[i], beliefs[i], P_MISS, 10)
+  	end
+  end
+
+  callsub normalize
+
+# Move right cyclic with uncertainty 0, 1, 2 positions
+sub move
+  # Save current beliefs and initialize beliefs to 0
+  call math.copy(save, beliefs)
+  call math.fill(beliefs, 0)
+
+  # From positions 0,1,2, the robot can move to 2
+  # ...
+  # From positions 7,8=0,9=1, the robot can move to 1
+  for i in 2:9 do
+    call math.muldiv(temp, save[(i-2)%8], P_2, 10)
+    beliefs[i%8] += temp
+    call math.muldiv(temp, save[(i-1)%8], P_1, 10)
+    beliefs[i%8] += temp
+    call math.muldiv(temp, save[i%8], P_0, 10)
+    beliefs[i%8] += temp
+  end
+
+  callsub normalize
+
+onevent timer0
+  if  state == 1 then
+    callsub sense
+    callsub move
+    callsub display_beliefs
+    call sound.freq(1000,10)
+  end
+</node>
+
+
+</network>

@@ -1,0 +1,58 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program:
+#   Analog artificial neuron with two inputs
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements an analog artificial neuron
+#   with two inputs
+# The inputs x1 and x2 are taken from the rear proximity sensors
+# The input are multiplied by the weights w1, w2 and the
+#   result (suitably scaled, if necessary) is used
+#   to control the intensity of the top leds
+#   and the speed and direction at which the Thymio runs away
+#   from the object detected by the center sensor
+# The weights determine the relative control that each
+#   input has on the output
+# The sensor with the larger weight has more effect on the output
+
+var w1 = 10      # Weight of neuron input
+var w2 = 20      # Weight of neuron input
+var x1           # Neuron input
+var x2           # Neuron input
+var y            # Neuron output
+var intensity    # Intensity of light
+var power        # Motor power
+var scale = 100  # Scale factor for sensor
+
+timer.period[0] = 100    # Milliseconds
+
+# Activiate neuron periodically
+onevent timer0
+  # Get inputs
+  x1 = prox.horizontal[5]/scale
+  x2 = prox.horizontal[6]/scale
+  y = x1*w1 + x2+w2
+  intensity = y / 15
+  power = y
+  call leds.top(intensity,0,0)
+  motor.left.target  = -power
+  motor.right.target = -power
+</node>
+
+
+</network>

@@ -1,0 +1,151 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="12" name="SAMPLES"/>
+<constant value="10" name="SAMPLES_NO_EDGES"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Corner detection
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements corner detection
+# The Thymio moves over a pattern (as shown in the book)
+#   and stores samples of both of the ground proximity sensors
+
+# On the first pass, check similar neighbors and turn on top LED
+#   if only one out of four samples a0[i-1],a1[i-1],a0[i],a1[i] is black
+# Horizontal and vertical edge detectors can now be applied
+# On a second pass, the top LEDs are lit
+#   if a corner is detected: both horizontal and vertical edges
+
+# Experiment with the number of samples, the threshold,
+#   the timer period and the sensor scale factors!!!
+
+# Buttons:
+#   Center:   start data collection (and stop)
+#   Forward:  start second pass
+#   Backward: apply edge detectors
+
+# SAMPLES: the number of samples taken
+# SAMPLES_NO_EDGES: for applying filters
+
+var a0[SAMPLES]
+var a1[SAMPLES]
+var horizontal[SAMPLES]
+var vertical[SAMPLES]
+
+var power        = 100 # Motor power
+var scale1       = 30  # Sensor scale factors
+var scale2       = 120
+var period       = 200 # Timer period
+var threshold    = 100 # Threshold for detection
+var state              # 0 = stop, 1 = first pass, 2 = second pass
+var count              # Count of similar neighbors
+var i                  # Loop index
+
+state = 0
+call leds.top(0,0,0)
+timer.period[0] = 0
+timer.period[1] = 0
+
+# Subroutine for stopping processing
+sub stop
+    state = 0
+    motor.left.target = 0
+    motor.right.target = 0
+    timer.period[0] = 0
+    state = 0
+  	 call leds.top(0,0,0)
+
+# Start first pass and stop
+onevent button.center
+  if button.center != 0 then return end
+  if state == 0 then
+    i = 0
+    call math.fill(a0,0)
+    call math.fill(a1,0)
+    motor.left.target = power
+    motor.right.target = power
+    timer.period[0] = period
+    state = 1
+  else
+    callsub stop
+  end
+
+# Start second pass
+onevent button.forward
+  if button.forward != 0 then return end
+  timer.period[1] = period
+  motor.left.target = power
+  motor.right.target = power
+  i = 0
+  state = 2
+
+# Compute edge detectors
+onevent button.backward
+  if button.backward != 0 then return end
+  call math.fill(horizontal,0)
+  call math.fill(vertical,0)
+  for i in 1:SAMPLES_NO_EDGES do
+     # Horizontal: diff of previous and next of each sample
+     horizontal[i] = (-a0[i-1] + a0[i+1]) + (-a1[i-1] + a1[i+1])
+     # Vertical: diff of left and right samples
+     vertical[i] = -a0[i-1] + a1[i-1]
+  end
+
+# First pass timer event handler
+onevent timer0
+  if state == 0 then return end
+  if i >= SAMPLES then
+    callsub stop
+    return
+  end
+  a0[i] = (prox.ground.delta[0] * scale1) / scale2
+  a1[i] = (prox.ground.delta[1] * scale1) / scale2
+  # Similar neighbors corner detector
+  # Count number of samples below threshold
+  # If only 1, turn on top LED
+  if i > 0 then
+    count = 0
+    if a0[i-1] &lt; threshold then count += 1 end
+    if a1[i-1] &lt; threshold then count += 1 end
+    if a0[i]   &lt; threshold then count += 1 end
+    if a1[i]   &lt; threshold then count += 1 end
+    if count == 1 then
+    	call leds.top(32,0,0)
+    else
+      call leds.top(0,0,0)
+    end
+  end
+  i += 1
+
+# Second pass timer event handler
+# Turn LED on / off if both edge detectors are above a threshold
+onevent timer1
+  if state != 2 then return end
+  if i >= SAMPLES then
+    callsub stop
+    return
+  end
+  if abs horizontal[i] > threshold and
+     abs vertical[i]   > threshold then
+    call leds.top(32,32,32)
+  else
+    call leds.top(0,0,0)
+  end
+    i += 1
+</node>
+
+
+</network>

@@ -1,0 +1,157 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="3" name="JITTER"/>
+<constant value="4000" name="FORWARD_TIMER"/>
+<constant value="600" name="SEARCH_TIME"/>
+<constant value="15" name="SCALE_MOTOR"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: correcting odometry errors
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Center button to start, stop
+# Left, right buttons set motor power (by +/- 100)
+# Forward, backward buttons to set difference
+#   between left and right motors (by +/- 10)
+# Use difference for calibration so that the robot moves straight
+
+# Robot runs for FORWARD_TIMER seconds
+# Then it checks if it is over a black tape
+# If not it moves backwards and forwards for SEARCH_TIME ms
+#   going faster and faster until it finds the tape
+
+# Optional jitter in forward motion
+
+# Circle leds display motor power
+
+# Variables
+var motor          # Motor power
+var motor_diff     # Difference between motors
+var state          # 0 = off, 1 = on, 2= timer expired, search
+var jitter         # Random jitter
+var ran            # Get random value
+
+# Initialization
+motor = 0
+motor_diff = 0
+jitter = 0
+state = 0
+call leds.circle(0,0,0,0,0,0,0,0)
+call leds.top(0,0,0)
+timer.period[0] = 0
+timer.period[1] = 0
+
+# Set the circle leds to indicate the motor power
+sub set_circle_leds
+  if motor/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/100==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor/100==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor/100==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor/100==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor/100==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# Button event handlers
+#   Left/right: increase or decrease motor power within 0-500
+onevent button.left
+  if  button.left == 0 then
+    motor = motor - 100
+    if  motor &lt; 0 then motor = 0 end
+    callsub set_circle_leds
+  end
+
+onevent button.right
+  if  button.right == 0 then
+    motor = motor + 100
+    if  motor > 500 then motor = 500 end
+    callsub set_circle_leds
+  end
+
+#   forwards, backwards: increase or decrease diff within 0-100
+onevent button.forward
+  if  button.forward == 0 then
+    motor_diff = motor_diff + 10
+    if  motor_diff > 100 then motor_diff = 100 end
+  end
+
+onevent button.backward
+  if  button.backward == 0 then
+    motor_diff = motor_diff - 10
+    if  motor_diff &lt; 0 then motor_diff = 0 end
+  end
+
+# When center button released
+onevent button.center
+  if  button.center == 0 then
+    # If off, set state to 1 (on) and dirve forwards
+    if  state == 0 then
+      state = 1
+      motor.left.target  = motor + motor_diff
+      motor.right.target = motor
+      call leds.top(0,0,0)
+      timer.period[0] = FORWARD_TIMER
+      timer.period[1] = 0
+    #   else if state is on, call stop the motors
+    else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+      motor = 0
+      motor_diff = 0
+      callsub set_circle_leds
+      call leds.top(0,0,0)
+      timer.period[0] = 0
+      timer.period[1] = 0
+    end
+  end
+
+# Add jitter and check for goal
+onevent prox
+  # Add jitter
+#  call math.rand(ran)
+#  jitter = JITTER * (ran/1000)
+#  if state == 1 then
+#    motor.left.target  = motor + jitter + motor_diff
+#    motor.right.target = motor + jitter
+#    return
+#  end
+
+  # Check for goal tape  
+  if state == 2 then
+    if prox.ground.delta[0] &lt; 200 or
+       prox.ground.delta[1] &lt; 200 then
+      call leds.top(32,0,0)
+      motor.left.target  = 0
+      motor.right.target = 0
+      state = 0
+    end
+  end
+
+# Forwards timer: when expired go to search state and set search timer
+onevent timer0
+  if state != 1 then return end
+  timer.period[1] = SEARCH_TIME
+  motor = 100
+  state = 2
+
+# Search timer: go faster and faster
+onevent timer1
+  if state != 2 then return end
+  motor = -1*((motor*SCALE_MOTOR)/10)
+  motor.left.target = motor
+  motor.right.target = motor
+</node>
+
+
+</network>

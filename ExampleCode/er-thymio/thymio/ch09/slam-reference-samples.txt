@@ -1,0 +1,48 @@
+thymio-II._id -9542 
+thymio-II.event.source -9542 
+thymio-II.event.args 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+thymio-II._fwversion 9 0 
+thymio-II._productId 8 
+thymio-II.buttons._raw 10600 9086 13720 13651 14996 
+thymio-II.button.backward 0 
+thymio-II.button.left 0 
+thymio-II.button.center 0 
+thymio-II.button.forward 0 
+thymio-II.button.right 0 
+thymio-II.buttons._mean 10618 9096 13730 13668 15010 
+thymio-II.buttons._noise 39 31 40 39 43 
+thymio-II.prox.horizontal 0 0 1905 1941 2984 0 0 
+thymio-II.prox.comm.rx._payloads 0 0 0 0 0 0 0 
+thymio-II.prox.comm.rx._intensities 0 0 0 0 0 0 0 
+thymio-II.prox.comm.rx 0 
+thymio-II.prox.comm.tx 0 
+thymio-II.prox.ground.ambiant 21 22 
+thymio-II.prox.ground.reflected 880 927 
+thymio-II.prox.ground.delta 859 905 
+thymio-II.motor.left.target 0 
+thymio-II.motor.right.target 0 
+thymio-II._vbat 743 742 
+thymio-II._imot 0 0 
+thymio-II.motor.left.speed -4 
+thymio-II.motor.right.speed 0 
+thymio-II.motor.left.pwm 0 
+thymio-II.motor.right.pwm 0 
+thymio-II.acc 2 1 22 
+thymio-II.temperature 282 
+thymio-II.rc5.address 0 
+thymio-II.rc5.command 0 
+thymio-II.mic.intensity 5 
+thymio-II.mic.threshold 0 
+thymio-II.mic._mean 253 
+thymio-II.timer.period 0 0 
+thymio-II.acc._tap 32 
+thymio-II.left_samples 2758 1800 0 2059 2427 0 1493 2371 0 4352 1981 2808 1600 0 0 
+thymio-II.center_samples 1686 2289 1528 1500 1853 1983 2127 1769 2171 2105 3819 3219 0 0 0 
+thymio-II.right_samples 0 1629 2415 0 1304 1908 0 2180 1961 2507 1904 3167 0 0 1046 
+thymio-II.left 0 
+thymio-II.right 1939 
+thymio-II.center 1906 
+thymio-II.index 15 
+thymio-II.similarity 0 3845 3845 3845 3845 3845 3845 3845 3845 3845 3845 3845 3845 3845 3845 
+thymio-II.best_similarity 0 
+thymio-II.best_index 0 

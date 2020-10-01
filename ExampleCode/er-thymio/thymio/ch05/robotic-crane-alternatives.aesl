@@ -1,0 +1,126 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="1500" name="LONG_PERIOD"/>
+<constant value="200" name="SHORT_PERIOD"/>
+<constant value="500" name="FAST_MOTOR"/>
+<constant value="200" name="SLOW_MOTOR"/>
+<constant value="300" name="THRESHOLD"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: a robotic crane
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Center button to start, stop
+# Show state in circle leds
+
+# Constants
+# Adjust the constants to fit your robot and layout
+
+#   LONG_PERIOD   period of fast actuator sample
+#   SHORT_PERIOD  period of slow actuator sample
+#   FAST_MOTOR    motor power fast actuator
+#   SLOW_MOTOR    motor power slow actuator
+
+# 0=off, 1=fast, 2=slow, 3=both
+var state = 0
+
+# Tape found
+var found = 0
+
+timer.period[0] = 0
+call leds.circle(0,0,0,0,0,0,0,0)
+call leds.top(0,0,0)
+
+# Display state in circle leds
+sub set_circle_leds
+  if state==0 then call leds.circle(0,0,0,0,0,0,0,0)    end
+  if state==1 then call leds.circle(32,0,0,0,0,0,0,0)   end
+  if state==2 then call leds.circle(32,32,0,0,0,0,0,0)  end
+  if state==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if state==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if state==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+sub stop
+  state = 0
+  found = 0
+  motor.left.target = 0
+  motor.right.target = 0
+  timer.period[0] = 0
+
+onevent buttons
+	when button.center == 1 do
+     call leds.circle(0,0,0,0,0,0,0,0)
+     call leds.top(0,0,0)
+     callsub stop
+   end
+	when button.left == 1 do
+     state = 1
+     call leds.top(0,0,0)
+     callsub set_circle_leds
+     motor.left.target = FAST_MOTOR
+     motor.right.target = FAST_MOTOR
+     timer.period[0] = LONG_PERIOD
+	end
+	when button.right == 1 do
+     state = 2
+     call leds.top(0,0,0)
+     callsub set_circle_leds
+     motor.left.target =  SLOW_MOTOR
+     motor.right.target = SLOW_MOTOR
+     timer.period[0] = SHORT_PERIOD
+	end
+	when button.forward == 1 do
+     state = 3
+     call leds.top(0,0,0)
+     callsub set_circle_leds
+     motor.left.target =  FAST_MOTOR
+     motor.right.target = FAST_MOTOR
+     timer.period[0] = LONG_PERIOD
+	end
+
+sub found_tape
+	if prox.ground.delta[0] &lt; THRESHOLD or 
+	   prox.ground.delta[1] &lt; THRESHOLD then
+     found = 1
+   else
+     found = 0
+   end
+
+onevent timer0
+  # State 0: do nothing
+  if state == 0 then return end
+  # State 1: end of long arm, start turn=1
+  callsub found_tape
+  if state == 1 and found == 1 then
+    call leds.top(0,32,0)
+    callsub stop
+  elseif state == 2 and found == 1 then
+    call leds.top(0,0,32)
+    callsub stop
+  elseif state == 3 and found == 1 then
+    state = 4    
+    call leds.top(32,0,0)
+    callsub set_circle_leds
+    motor.left.target =  -SLOW_MOTOR
+    motor.right.target = -SLOW_MOTOR
+    timer.period[0] = SHORT_PERIOD
+  elseif state == 4 and found == 0 then
+    call leds.top(32,32,32)
+    callsub stop
+  end
+ </node>
+
+
+</network>

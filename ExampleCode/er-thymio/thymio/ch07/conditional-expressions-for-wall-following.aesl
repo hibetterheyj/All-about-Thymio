@@ -1,0 +1,127 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="1500" name="THRESHOLD"/>
+<constant value="14" name="CORNER1"/>
+<constant value="3" name="CORNER2"/>
+<constant value="3" name="CORNER3"/>
+<constant value="200" name="DURATION"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: conditional-expressions-for-wall-following
+# Copyright 2014, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Follow a wall on the right of the Thymio
+# Doesn't work very well because of the difficulty
+#   of setting the timer correctly
+# State machine defined below
+# Display state on circle leds
+
+# States
+#  0 - off
+#  1 - no wall on right, go straight
+#  2 - wall on right, go straight
+#  3 - wall on right, but too close, turn left
+#  4 - wall _no longer_ on right, go straight for about 1.5 sec
+#  5 - then turn left for about .5 sec
+#      if still wall on right, go to state 2
+#      if no longer wall on right, turn left (state 6)
+#  6 - turn left for about .5 sec
+
+var state = 0    # For state machine
+var count = 0    # Count of timer expirations of DURATION sec
+
+call leds.circle(0,0,0,0,0,0,0,0)
+timer.period[0] = 0
+
+onevent button.center
+  if button.center == 1 then return end
+  if state == 0 then
+    state = 1
+    call leds.circle(32,0,0,0,0,0,0,0)
+    motor.left.target = 150
+    motor.right.target = 150
+  else
+    state = 0
+    call leds.circle(0,0,0,0,0,0,0,0)
+    motor.left.target = 0
+    motor.right.target = 0
+  end
+  count = 0
+  timer.period[0] = 0
+
+onevent prox
+  if state == 0 then return end
+  if state == 5 then
+    if count >= CORNER2 then
+      if prox.horizontal[4] > THRESHOLD then
+        state = 2
+        call leds.circle(0,32,0,0,0,0,0,0)
+        motor.left.target = 150
+        motor.right.target = 150
+      else
+  	     state = 6
+        call leds.circle(0,0,0,0,0,6,0,0)
+        count = 0
+        timer.period[0] = DURATION
+        motor.left.target = -400
+        motor.right.target = 400
+      end
+    end
+    return
+  end
+  if prox.horizontal[4] > 2*THRESHOLD then
+    state = 3
+    call leds.circle(0,0,32,0,0,0,0,0)
+    motor.left.target = 150
+    motor.right.target = 250
+  elseif prox.horizontal[4] > THRESHOLD then
+    state = 2
+    call leds.circle(0,32,0,0,0,0,0,0)
+    motor.left.target = 150
+    motor.right.target = 150
+  elseif state == 2 or state == 3 then
+    state = 4
+    call leds.circle(0,0,0,32,0,0,0,0)
+    count = 0
+    timer.period[0] = DURATION
+  elseif state == 4 then
+    if count >= CORNER1 then
+      state = 5
+      call leds.circle(0,0,0,0,32,0,0,0)
+      count = 0
+      timer.period[0] = DURATION
+      motor.left.target = 400
+      motor.right.target = -400
+    end
+  elseif state == 6 then
+    if  count >= CORNER3 then
+    	state = 1
+      call leds.circle(32,0,0,0,0,0,0,0)
+      motor.left.target = 150
+      motor.right.target = 150
+    end
+  else
+    state = 1
+    call leds.circle(32,0,0,0,0,0,0,0)
+    motor.left.target = 150
+    motor.right.target = 150
+  end
+  
+onevent timer0
+  count++
+</node>
+
+
+</network>

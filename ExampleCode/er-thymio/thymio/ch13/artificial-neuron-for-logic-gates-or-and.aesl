@@ -1,0 +1,97 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="1500" name="THRESHOLD"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program:
+#   Artificial neural neuron for the logic gates "or" and "and"
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements an artificial neuron to simulate
+#   the logic gates "or" and "and"
+# The inputs x1 (respectively, x2) are 1 or 0 depending on whether
+#   the left (respectively, right) sensors detect an object
+# There is also a constant input of 1
+
+# The output y is the "and" or "or" of x1 and x2
+# The output is indicated by the top leds:
+#   0 = white, 1 = red
+# and by movement of the robot:
+#   0 = move, 1 = object detected so stop
+
+# The center button toggles between "or" and "and" gates
+# The gate is indicated by the circle leds:
+#   1 led for "or", 2 leds for "and"
+
+var or_weights[]  = [-10,20,20]  # Weights for or gate
+var and_weights[] = [-30,20,20]  # Weights for and gate
+var w[]           = or_weights   # Set with weights for "and" or "or"
+
+var x1    # First input
+var x2    # Second input
+var y     # Output
+var gate  # 0 for "or" gate, 1 for "and" gate
+
+timer.period[0] = 100    # Milliseconds
+gate = 0                 # Initialize to "or" gate
+w = or_weights
+call leds.circle(32,0,0,0,0,0,0,0)
+
+# Toggle between "or" and "and" gates
+onevent button.center
+  when button.center == 0 do  # Run on release of button
+    if gate == 1 then
+      w = or_weights
+      call leds.circle(32,0,0,0,0,0,0,0)
+    else
+      w = and_weights
+      call leds.circle(32,0,0,0,32,0,0,0)
+    end
+    gate = 1 - gate
+  end
+
+# Activiate neuron periodically
+onevent timer0
+  # Get inputs: left or right proximity sensors > threshold
+  if prox.horizontal[0] > THRESHOLD or
+     prox.horizontal[1] > THRESHOLD then
+    x1 = 1
+  else
+    x1 = 0
+  end
+  if prox.horizontal[3] > THRESHOLD or
+     prox.horizontal[4] > THRESHOLD then
+    x2 = 1
+  else
+    x2 = 0
+  end
+
+  # The neuron computes the value of y
+  y = 1*w[0] + x1*w[1] + x2*w[2]
+
+  # A positive value of y is a "1", otherwise "0"
+  if y > 0 then
+    call leds.top(32,0,0)
+    motor.left.target = 0
+    motor.right.target = 0
+  else
+    call leds.top(32,32,32)
+    motor.left.target = 100
+    motor.right.target = 100
+  end
+</node>
+
+
+</network>

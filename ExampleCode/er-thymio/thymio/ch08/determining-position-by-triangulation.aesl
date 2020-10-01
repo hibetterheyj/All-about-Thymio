@@ -1,0 +1,135 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="20" name="THETA"/>
+<constant value="24" name="DISTANCE"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: determining distance by triangulation
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# See "Projects for the Thymio Robot in the Aseba Studio Environment"
+#   for a detailed description
+
+# Index of sensor with maximum value and the maximum value
+var max_prox
+var max_value
+# Index for searching
+var index
+
+# Side of the triangle (distance to the object)
+var distance
+# Variable for display of distance
+var distance1
+
+# Angle to object: -2*THETA, -THETA, 0, THETA, 2*THETA
+# Use angle for subroutine and store in alpha and beta
+var alpha
+var beta
+var angle
+
+# Variables for computation of the side of the triangle
+var alpha1
+var beta1
+var gamma
+var dsin
+var dcos
+
+#################################################################
+
+# Subroutines for displaying data on the leds
+
+# Clear all leds
+sub clear_leds
+	call leds.circle(0,0,0,0,0,0,0,0)
+	call leds.bottom.left(0,0,0)
+	call leds.bottom.right(0,0,0)
+
+# Set the circle leds to indicate the distance to the object
+#   Use 31 instead of 32 so as not to overflow
+sub set_distance_leds
+	distance1 = (distance - 10) / 2
+	call leds.circle(
+    	(distance1/1)*31, (distance1/2)*31, (distance1/3)*31, (distance1/4)*31,
+	    (distance1/5)*31, (distance1/6)*31, (distance1/7)*31, (distance1/8)*31)
+
+# The angle is displayed as a color in the top leds
+#   and the sign in the bottom leds
+sub set_angle_leds
+	if angle &lt; 0 then call leds.bottom.left(32,0,0)
+	elseif angle > 0 then call leds.bottom.right(32,0,0)
+	end
+	if abs(angle) == THETA then call leds.top(0,32,0)
+	elseif abs(angle) == 2*THETA then call leds.top(0,0,32)
+	else call leds.top(0,32,32)
+	end
+
+#################################################################
+
+# Computations of distance, angle, coordinates
+
+# Get the angle to the object by finding the sensor
+#   with the highest value
+sub get_angle
+	max_value = -1
+	for index in 0:4 do
+		if prox.horizontal[index] > max_value then
+			max_value = prox.horizontal[index]
+			max_prox = index
+		end
+	end
+	angle = (2 - max_prox) * THETA
+
+# Compute the coordinates as:
+#   x = distance * sin(angle), y = distance * cos(angle)
+# Aseba sin/cos use radians in the full 16-bit integer range
+sub compute_distance
+	call math.muldiv(beta1, 314, beta, 180)
+	beta1 = beta1 * 100
+	call math.cos(dcos, beta1)
+	call math.muldiv(gamma, 314, alpha+beta, 180)
+	gamma = gamma * 100
+	call math.sin(dsin, gamma)
+	call math.muldiv(distance, DISTANCE, dcos, dsin)
+
+#################################################################
+
+# Button event handlers
+
+# When the forward button is released,
+#   sense, compute and display the distance and angle
+onevent button.forward
+	when  button.forward == 0 do
+		callsub clear_leds
+		callsub get_angle	
+		callsub set_angle_leds
+		alpha = abs(angle)
+	end
+
+# When the backward button is released,
+#   compute and display the x and y coordinates
+onevent button.backward
+	when  button.backward == 0 do
+		callsub clear_leds
+		callsub get_angle	
+		callsub set_angle_leds
+		beta = abs(angle)
+		callsub compute_distance
+		callsub set_distance_leds
+	end
+
+</node>
+
+
+</network>

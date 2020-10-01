@@ -1,0 +1,86 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="450" name="MOTOR"/>
+<constant value="32" name="SPEED"/>
+<constant value="500" name="DELTA"/>
+<constant value="8" name="COUNT"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: distance from speed and time
+# Copyright 2014, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Use program velocity-over-a-fixed-distance
+#   to estimate a linear relation between power and velocity
+# This program samples motor.left.speed and motor.right.speed
+#   and uses it to compute the distance traveled in a fixed time
+
+# Constants
+#   MOTOR     motor target speed
+#   DELTA     time between samples in milliseconds
+#   COUNT     number of samples
+#   SPEED     speed of robot per 100 power setting (*10)
+
+var state = 0	  # State variable
+var count         # Counter for sampling
+var deltaD        # Distance traveled in one sample
+var deltaT        # Time of one sample in seconds (*10)
+var distance      # Total distance traveled
+
+timer.period[0] = DELTA
+deltaT = (DELTA * 10)/ 1000
+
+# Stop the motors and set state to 0
+sub stop
+    state = 0
+    motor.left.target = 0
+    motor.right.target = 0
+
+# Touch center button to start and stop
+onevent button.center
+  if  button.center == 0 then
+    if  state == 0 then
+  	  count = 0
+      motor.left.target = MOTOR
+      motor.right.target = MOTOR
+      state = 1
+    else
+      callsub stop
+    end
+  end
+
+# On timer event, sample speed
+# Terminate when COUNT samples have been taken
+onevent timer0
+  if  state == 0 then
+  	return
+  end
+  if  count > 0 then
+    call math.muldiv(
+      deltaD,
+      (motor.left.speed+motor.right.speed)/2,
+      SPEED*deltaT,
+      100)
+    distance = distance + deltaD
+  end
+  if count == COUNT then
+    callsub stop
+    # Remove scaling factors from SPEED and deltaT
+    distance = distance / 100
+  end
+  count++ 	
+</node>
+
+
+</network>

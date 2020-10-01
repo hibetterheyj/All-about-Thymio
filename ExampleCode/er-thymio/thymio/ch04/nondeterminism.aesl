@@ -1,0 +1,153 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="500" name="TIMER"/>
+<constant value="150" name="MOTOR"/>
+<constant value="1000" name="DETECTION"/>
+<constant value="3000" name="NEAR"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: search and approach
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# The robot searches left and right until it detects an object
+#   and then it approaches the object, stopping when it is near
+# The state is displayed by the number of circle leds lit
+# If both (at +/-45) and (detected),
+#   choose randomly to simulate nondeterminism
+# Random choice is displayed as green/blue top leds
+
+# Constants
+#   TIMER     - timer period
+#   MOTOR     - motor power
+#   DETECTION - threshold for detecting object
+#   NEAR      - threshold for detecting when near object
+
+
+var state         # 0 = stopped/found, 1 = left, 2 = right, 3 = approach
+var ran           # Random value
+
+state = 0
+motor.left.target = 0
+motor.right.target = 0
+call leds.top(0,0,0)
+call leds.circle(0,0,0,0,0,0,0,0)
+timer.period[0] = TIMER
+
+# Turn on or off when the center button is released
+onevent button.center
+  if button.center == 0 then
+    if state == 0 then
+      # Initially search left
+      state = 1
+      call leds.circle(32,0,0,0,0,0,0,0)
+      motor.left.target = -MOTOR
+      motor.right.target = MOTOR
+      call leds.top(0,0,0)
+    else
+      # Stop
+      state = 0
+      call leds.circle(0,0,0,0,0,0,0,0)
+      motor.left.target = 0
+      motor.right.target = 0
+    end
+  end
+
+# Timer expired
+onevent timer0
+  if state == 0 then return end
+  # Search left
+  if state == 1 then
+    # If both moved to 45 and object detected, select randomly
+    if  prox.horizontal[2] > DETECTION and
+        prox.horizontal[4] > DETECTION then
+      call math.rand(ran)
+      if ran > 0 then
+      	call leds.top(0,32,0)
+      else
+         call leds.top(0,0,32)
+      end
+      if ran > 0 then
+        motor.left.target = MOTOR
+        motor.right.target = MOTOR
+        state = 3
+        call leds.circle(32,32,32,0,0,0,0,0)
+      else
+        motor.left.target = MOTOR
+        motor.right.target = -MOTOR
+        state = 2
+        call leds.circle(32,32,0,0,0,0,0,0)
+      end
+    # Object detected by center sensor -> approach
+    elseif prox.horizontal[2] > DETECTION then
+      motor.left.target = MOTOR
+      motor.right.target = MOTOR
+      state = 3
+      call leds.circle(32,32,32,0,0,0,0,0)
+    # Moved about 45 degrees -> turn
+    elseif prox.horizontal[4] > DETECTION then
+      motor.left.target = MOTOR
+      motor.right.target = -MOTOR
+      state = 2
+      call leds.circle(32,32,0,0,0,0,0,0)
+    end
+
+  # Search right
+  elseif state == 2 then
+    if prox.horizontal[2] > DETECTION and
+           prox.horizontal[0] > DETECTION then
+      call math.rand(ran)
+      if ran > 0 then
+      	call leds.top(0,32,0)
+      else
+         call leds.top(0,0,32)
+      end
+      if ran > 0 then
+        motor.left.target = MOTOR
+        motor.right.target = MOTOR
+        state = 3
+        call leds.circle(32,32,32,0,0,0,0,0)
+      else
+        motor.left.target = -MOTOR
+        motor.right.target = MOTOR
+        state = 2
+        call leds.circle(32,32,0,0,0,0,0,0)
+      end
+    # Object detected by center sensor -> turn
+    elseif prox.horizontal[2] > DETECTION then
+      motor.left.target = MOTOR
+      motor.right.target = MOTOR
+      state = 3
+      call leds.circle(32,32,32,0,0,0,0,0)
+    # Moved about 45 degrees -> turn
+    elseif prox.horizontal[0] > DETECTION then
+      motor.left.target = -MOTOR
+      motor.right.target = MOTOR
+      state = 1
+      call leds.circle(32,0,0,0,0,0,0,0)
+    end
+
+  # Approaching
+  # If the object is near -> stop
+  elseif state == 3 and prox.horizontal[2] > NEAR then
+    motor.left.target = 0
+    motor.right.target = 0
+    state = 0
+    call leds.circle(0,0,0,0,0,0,0,0)
+    call leds.top(32,32,32)
+  end
+</node>
+
+
+</network>

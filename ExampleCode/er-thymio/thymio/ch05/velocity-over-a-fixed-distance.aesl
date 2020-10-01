@@ -1,0 +1,181 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="150" name="THRESHOLD"/>
+<constant value="40" name="CHANGE"/>
+<constant value="200" name="MOTOR"/>
+<constant value="50" name="STOP"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program
+# Velocity over a fixed distance
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+#
+# A rectangle of a known length made of black tape.
+# Place the Thymio before the start tape and touch the center button 
+# The Thymio approaches the start tape and when it reaches its end
+# it moves rapidly, stopping when it detects the end tape.
+# The side tapes ensure that the Thymio moves straight.
+# Time in 4-second intervals is shown on the circle led,
+# or measure with a stopwatch.
+# Compute the velocity as distance / time.
+#
+#   ||--------------------------------||
+# * ||                                ||
+#   ||--------------------------------||
+#  Start                             End
+#
+# Alternatively, touch the back button before the center button 
+# The Thymio will stop 5 seconds after the end of the start tape
+# Measure the distance and compute velocity as distance / 5.
+
+# Constants
+#   THRESHOLD for sensing the tapes
+#   MOTOR     motor power
+#   CHANGE    percentage change of motor power for steering
+#   STOP      count of timer ticks until stop
+
+# States:
+#   0 = off
+#   1 = find start tape
+#   2 = skip start tape
+#   3 = drive straight
+var state
+
+# Counter of timer events (100ms = 10 times a second)
+var time
+
+# Stop after a fixed period of time (in counts)
+var stop_timer
+
+# Initialization
+state = 0
+stop_timer = 0
+call leds.buttons(32,0,0,0)
+call leds.circle(0,0,0,0,0,0,0,0)
+timer.period[0] = 100
+motor.left.target = 0
+motor.right.target = 0
+
+# Stop the motors and set state to 0
+sub stop
+  state = 0
+  motor.left.target  = 0
+  motor.right.target = 0
+  call leds.buttons(32,0,0,0)
+
+# When center button released
+onevent button.center
+  if  button.center == 0 then
+    # If off, set state to 1 (on) and creep forward to find start tape
+    if  state == 0 then
+      state = 1
+      call leds.buttons(0,32,0,0)
+      call leds.circle(0,0,0,0,0,0,0,0)
+      motor.left.target  = MOTOR - (MOTOR * CHANGE)/100
+      motor.right.target = MOTOR - (MOTOR * CHANGE)/100
+    #   else if state is on, call stop
+    else
+      callsub stop
+    end
+  end
+
+# Toggle the value of stop_timer when back button is touched
+onevent button.backward
+  if  button.backward == 0 then
+    if  stop_timer == STOP then
+      stop_timer = 0
+    else
+      stop_timer = STOP
+    end
+  end
+
+# Display time in 4-second intervals
+#  Use 31 instead of 32 to prevent overflow
+sub set_circle_leds
+    call leds.circle(
+      (time/ 40)*31, (time/ 80)*31, (time/120)*31, (time/160)*31,
+      (time/200)*32, (time/240)*31, (time/280)*31, (time/320)*31)
+
+# Drive straight between the tapes
+sub drive_straight
+  # Display time
+  callsub set_circle_leds
+  # If both sensors find black, this is the stop tape
+  if  prox.ground.delta[0] &lt; THRESHOLD and
+      prox.ground.delta[1] &lt; THRESHOLD then
+      callsub stop
+  # If one of the ground sensors finds the tape
+  #   turn the robot in the appropriate direction
+  elseif  prox.ground.delta[0] &lt; THRESHOLD then
+  	 motor.left.target  = MOTOR + (MOTOR * CHANGE)/100
+  	 motor.right.target = MOTOR - (MOTOR * CHANGE)/100
+  elseif  prox.ground.delta[1] &lt; THRESHOLD then
+  	 motor.left.target  = MOTOR - (MOTOR * CHANGE)/100
+  	 motor.right.target = MOTOR + (MOTOR * CHANGE)/100
+  else
+  # Otherwise, drive straight
+     motor.left.target  = MOTOR
+     motor.right.target = MOTOR
+  end
+
+# Start tape found
+sub start_found
+  # Change state to look for end of start tape
+  if  prox.ground.delta[0] &lt; THRESHOLD and
+      prox.ground.delta[1] &lt; THRESHOLD then
+  	  state = 2
+     call leds.buttons(0,0,32,0)
+  end 
+
+# End of start tape found
+sub end_of_start_found
+  if  prox.ground.delta[0] > THRESHOLD and
+      prox.ground.delta[1] > THRESHOLD then
+    # Change state to 3 (straight)
+    state = 3
+    call leds.buttons(0,0,0,32)
+    # Initialize time counter to 0 and drive forward
+    time = 0
+    motor.left.target  = MOTOR
+    motor.right.target = MOTOR
+  end
+
+# Proximity event occurs, call subroutine depending on the state
+onevent prox
+  # Check if the start tape has been found
+  if  state == 1 then
+	callsub start_found
+  # Check if the end of the start tape has been found
+  elseif state == 2 then
+    callsub end_of_start_found
+  # Drive straight until stop tape sets state to 0
+  elseif state == 3 then
+    callsub drive_straight
+  end
+
+# Timer event: increment the time counter
+onevent timer0
+  if state == 3 then
+    time = time + 1
+    # If stop_timer is non-zero, stop when time has its value
+    if time == stop_timer then
+      callsub stop
+    end
+  end
+</node>
+
+
+</network>

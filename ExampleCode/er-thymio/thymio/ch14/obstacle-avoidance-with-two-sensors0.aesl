@@ -1,0 +1,53 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event size="3" name="left_right"/>
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: obstacle avoidance with two sensors
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Touch right and left buttons to sample
+#   when the wall is detected on the right side, turn left
+#   when the wall is detected on the left side, turn right
+# Export:
+#   button touched (1=left, 2=right)
+#   average of two left sensors
+#   average of the two right sensors
+
+# Export the average values of the left and right sensors
+#   Right click on the event "left_right" and select plot
+#   Click the "plot of ground" tab to display the plot window
+#   Click "Save as"
+# To clear before next run
+#   Click "Clear" below the bottom right pane 
+#   Click clear in the plot window
+
+onevent button.left
+  when button.left == 0 do
+    emit left_right [1,
+                     (prox.horizontal[0]+prox.horizontal[1])/2,
+                     (prox.horizontal[3]+prox.horizontal[4])/2]
+  end
+
+onevent button.right
+  when button.right == 0 do
+    emit left_right [2,
+                     (prox.horizontal[0]+prox.horizontal[1])/2,
+                     (prox.horizontal[3]+prox.horizontal[4])/2]
+  end
+</node>
+
+
+</network>

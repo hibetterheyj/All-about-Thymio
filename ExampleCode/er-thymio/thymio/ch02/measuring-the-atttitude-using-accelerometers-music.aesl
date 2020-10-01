@@ -1,0 +1,104 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="20" name="SIZE"/>
+<constant value="200" name="PERIOD"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Measuring the attitude using accelerometers
+#                    Compose music on-the-fly
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Touch the center button to start sampling
+# Touch again to start music
+# Store the left-right and front-back acceleration and
+#   generate sound from the results:
+# Left-right for the note and front-back for the duration
+
+# Constants
+#   SIZE        number of samples
+#   PERIOD      milliseconds between samples
+
+var save0[SIZE]   # array to store left-right samples
+var save1[SIZE]   # array to store front-back samples
+var index         # array index
+var state = 0     # state
+# Variables for ring leds to indicate acceleration
+var down
+var left
+
+# The notes middle C to high C in hertz
+var notes[8] = [261, 294, 330, 349, 392, 440, 494, 523]
+
+# Set timer to PERIOD and zero out the array
+timer.period[1] = PERIOD
+call math.fill(save0, 0)
+call math.fill(save1, 0)
+
+# When the center button is released, start sampling
+onevent button.center
+  when  button.center == 0 do
+    if  state == 0 then
+      state = 1
+  	elseif  state == 2 then
+  	  state = 3
+      call sound.freq(0,1)
+    elseif  state == 3 then
+      state = 0
+      call sound.freq(0,-1)
+  	end
+    index = 0
+  end 
+
+# On timer expiration, save left-right and front-back samples
+# When all samples are saved, initiate the sounds
+onevent timer1
+  if  state == 1 then
+    if  index &lt; SIZE then
+      save0[index] = acc[0]
+      save1[index] = acc[1]
+      index++
+    else
+      state = 2
+    end
+  end
+
+# When a sound is finished, start the next one
+# When a sound is finished, start the next one
+onevent sound.finished
+  if  state != 3 then
+  	return
+  end
+  if  index &lt; SIZE then
+    call sound.freq(notes[(save0[index]+32) % 8], save1[index]+33)
+    index++
+  else
+    state = 0
+  end
+
+# Correlate state and top leds
+# Use prox event just to have it occur frequently
+onevent prox
+  if  state == 0 then call leds.top(0,0,0)  end
+  if  state == 1 then call leds.top(32,0,0) end
+  if  state == 2 then call leds.top(0,32,0) end
+  if  state == 3 then call leds.top(0,0,32) end
+
+  if  acc[0] >= 0 then left = 32 else left = 0 end
+  if  acc[1] >= 0 then down = 32 else down = 0 end
+  call leds.circle(32-down, 0, 32-left, 0, down, 0, left, 0)
+</node>
+
+
+</network>

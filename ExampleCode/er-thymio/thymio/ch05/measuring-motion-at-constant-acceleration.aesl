@@ -1,0 +1,54 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: constant acceleration of the robot
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Full power is applied to the robot when the center button is touched
+
+# States:
+#   0 = off
+#   1 = drive straight
+var state
+
+# Initialization
+state = 0
+motor.left.target = 0
+motor.right.target = 0
+
+# Stop the motors and set state to 0
+sub stop
+  state = 0
+  motor.left.target  = 0
+  motor.right.target = 0
+
+# When center button released
+onevent button.center
+  if  button.center == 0 then
+    # If off, set state to 1 (on) and creep forward to find start tape
+    if  state == 0 then
+      state = 1
+      motor.left.target  = 500
+      motor.right.target = 500
+    #   else if state is on, call stop
+    else
+      callsub stop
+    end
+  end
+</node>
+
+
+</network>

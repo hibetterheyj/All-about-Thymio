@@ -1,0 +1,143 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="30" name="SAMPLES"/>
+<constant value="28" name="SAMPLES_NO_EDGES"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Detection of a door
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program detects a "door"
+# The Thymio moves over a pattern (as shown in the book)
+#   and stores samples of one of the ground proximity sensors
+# On a second pass, the top LEDs are lit
+#   if an edge is detected using a digital derivative filter
+# A door is detected if there is a positive derivative
+#   before a negative one
+
+# Experiment with the number of samples, the threshold,
+#   the timer period and the sensor scale factors!!!
+
+# Buttons:
+#   Center:   start data collection (and stop)
+#   Forward:  start second pass
+#   Backward: apply derivative filter
+
+# SAMPLES: the number of samples taken
+# SAMPLES_NO_EDGES: for applying filters
+
+var a[SAMPLES]
+var b[SAMPLES]
+
+var power        = 100 # Motor power
+var scale1       = 30  # Sensor scale factors
+var scale2       = 120
+var period       = 120 # Timer period
+var threshold    = 100 # Threshold for detection
+var state              # 0 = stop, 1 = first pass, 2 = second pass
+var sum                # For computing histogram
+var i                  # Loop index
+
+var positive_index     # Index where derivative is positive
+var negative_index     # Index where derivative is negative
+
+state = 0
+call leds.top(0,0,0)
+timer.period[0] = 0
+timer.period[1] = 0
+
+# Subroutine for stopping processing
+sub stop
+    state = 0
+    motor.left.target = 0
+    motor.right.target = 0
+    timer.period[0] = 0
+    state = 0
+
+# Start first pass and stop
+onevent button.center
+  if button.center != 0 then return end
+  if state == 0 then
+    i = 0
+    call math.fill(a,0)
+    motor.left.target = power
+    motor.right.target = power
+    timer.period[0] = period
+    state = 1
+  else
+    callsub stop
+  end
+  call leds.top(0,0,0)
+
+# Start second pass
+onevent button.forward
+  if button.forward != 0 then return end
+  timer.period[1] = period
+  motor.left.target = power
+  motor.right.target = power
+  i = 0
+  call leds.top(0,0,0)
+  positive_index = 0
+  negative_index = 0
+  state = 2
+
+# Apply filter
+onevent button.backward
+  if button.backward != 0 then return end
+  call math.fill(b,0)
+  for i in 1:SAMPLES_NO_EDGES do
+     b[i] = (-a[i-1] + a[i+1])
+  end
+
+# First pass timer event handler
+onevent timer0
+  if state == 0 then return end
+  if i >= SAMPLES then
+    callsub stop
+    return
+  end
+  a[i] = (prox.ground.delta[0] * scale1) / scale2
+  i += 1
+
+# Second pass timer event handler
+# Turn LED on / off if abs derivative is above a threshold
+onevent timer1
+  if state != 2 then return end
+  # At end of pass, turn LED green for a door
+  if i >= SAMPLES then
+    if positive_index &lt; negative_index then
+    	 call leds.top(0,32,0)
+    end
+    callsub stop
+    return
+  end
+  # Derivative is above threshold
+  if abs b[i] > threshold then
+    # Remember positive and negative derivatives
+    if b[i] > 0 then
+      positive_index = i
+    else
+      negative_index = i    
+    end
+    # LED is white for an edge
+    call leds.top(32,32,32)
+  else
+    call leds.top(0,0,0)
+  end
+    i += 1
+</node>
+
+
+</network>

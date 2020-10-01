@@ -1,0 +1,90 @@
+<!DOCTYPE aesl-source>
+<network>
+<node nodeId="1" name="thymio-II"># variables for state
+var state[4] = [0,0,0,0]
+var new_state[4] = [0,0,0,0]
+
+# stop timer 0
+timer.period[0] = 0
+# reset outputs
+call sound.system(-1)
+call leds.top(0,0,0)
+call leds.bottom.left(0,0,0)
+call leds.bottom.right(0,0,0)
+call leds.circle(0,0,0,0,0,0,0,0)
+
+# subroutine to display the current state
+sub display_state
+	call leds.circle(0,state[1]*32,0,state[3]*32,0,state[2]*32,0,state[0]*32)
+
+onevent prox
+	if prox.horizontal[2] > 2000 then
+		motor.left.target = 200
+		motor.right.target = 200
+	end
+	if prox.horizontal[2] &lt; 1000 and state[0] == 0 then
+		motor.left.target = -200
+		motor.right.target = 200
+		timer.period[0] = 1000
+	end
+	if prox.horizontal[2] &lt; 1000 and state[0] == 1 then
+		motor.left.target = 200
+		motor.right.target = -200
+		timer.period[0] = 1000
+	end
+
+	call math.copy(state, new_state)
+	callsub display_state
+
+onevent timer0
+	timer.period[0] = 0
+	if state[0] == 0 then
+		new_state[0] = 1
+	end
+	if state[0] == 1 then
+		new_state[0] = 0
+	end
+
+	call math.copy(state, new_state)
+	callsub display_state
+<toolsPlugins>
+<ThymioVisualProgramming>
+<vplroot xml-format-version="1">
+<settings color-scheme="0"/>
+<program advanced_mode="1">
+<set>
+<block value0="0" value1="0" value2="1" value3="0" value4="0" value5="0" value6="0" value7="1000" type="event" value8="2000" name="prox"/>
+<block value0="0" value1="0" value2="0" value3="0" type="state" name="statefilter"/>
+<block value0="200" value1="200" type="action" name="move"/>
+</set>
+<set>
+<block value0="0" value1="0" value2="2" value3="0" value4="0" value5="0" value6="0" value7="1000" type="event" value8="2000" name="prox"/>
+<block value0="2" value1="0" value2="0" value3="0" type="state" name="statefilter"/>
+<block value0="-200" value1="200" type="action" name="move"/>
+<block value0="1000" type="action" name="timer"/>
+</set>
+<set>
+<block value0="0" value1="0" value2="2" value3="0" value4="0" value5="0" value6="0" value7="1000" type="event" value8="2000" name="prox"/>
+<block value0="1" value1="0" value2="0" value3="0" type="state" name="statefilter"/>
+<block value0="200" value1="-200" type="action" name="move"/>
+<block value0="1000" type="action" name="timer"/>
+</set>
+<set>
+<block type="event" name="timeout"/>
+<block value0="2" value1="0" value2="0" value3="0" type="state" name="statefilter"/>
+<block value0="1" value1="0" value2="0" value3="0" type="action" name="setstate"/>
+</set>
+<set>
+<block type="event" name="timeout"/>
+<block value0="1" value1="0" value2="0" value3="0" type="state" name="statefilter"/>
+<block value0="2" value1="0" value2="0" value3="0" type="action" name="setstate"/>
+</set>
+<set>
+<block value0="0" value1="0" value2="0" value3="0" type="state" name="statefilter"/>
+</set>
+</program>
+</vplroot>
+</ThymioVisualProgramming>
+</toolsPlugins>
+</node>
+</network>

@@ -1,0 +1,84 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="30" name="SAMPLES"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Blob detection
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# This program implements blob detection
+# The Thymio moves over a pattern (as shown in the book)
+# When the black rectangle is first detected it turns on the top led
+#   and continues to do so as long as black is detected
+# When the black rectangle ends, it has detected the blog and
+#   doesn't search for another one.
+
+# Buttons:
+#   Center:   start data collection (and stop)
+
+# SAMPLES: the number of samples taken
+
+var power        = 100 # Motor power
+var period       = 120 # Timer period
+var threshold    = 200 # Threshold for detection
+var state              # 0 = stop, 1 = start, 2 = found blob, 3 = end of blob
+var i                  # Loop index
+
+state = 0
+call leds.top(0,0,0)
+timer.period[0] = 0
+
+# Subroutine for stopping processing
+sub stop
+    state = 0
+    motor.left.target = 0
+    motor.right.target = 0
+    timer.period[0] = 0
+    state = 0
+  	 call leds.top(0,0,0)
+
+# Start first pass and stop
+onevent button.center
+  if button.center != 0 then return end
+  if state == 0 then
+    i = 0
+    motor.left.target = power
+    motor.right.target = power
+    timer.period[0] = period
+    state = 1
+  else
+    callsub stop
+  end
+
+# First pass timer event handler
+onevent timer0
+  i += 1
+  if i > SAMPLES then
+  	 callsub stop
+  end
+  if state == 0 or state == 3 then return end
+  if state == 1 then
+    if prox.ground.delta[0] &lt; threshold then
+      state = 2
+      call leds.top(32,32,32)
+    end
+  elseif prox.ground.delta[0] > threshold then
+      state = 3
+      call leds.top(0,0,0)
+  end
+</node>
+
+
+</network>

@@ -1,0 +1,86 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="250" name="MOTOR"/>
+<constant value="100" name="MOTOR_CHANGE"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="62941" name="thymio-II"># Thymio-II program: forward kinematics
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Center button to start, stop
+# Show state in circle leds
+
+# The robot turns left, moves straight, turns right, moves straight
+# Set the values in the array "period" to specify the angles and distances
+# For inverse kinematics do the computations offline
+
+# Variables
+var state   # 0=off, 1=left turn, 2=straight, 3=right turn, 4=straight
+var period[] = [0,1000,4000,2000,4000]
+var motor_left[] =
+  [0, MOTOR-MOTOR_CHANGE, MOTOR, MOTOR+MOTOR_CHANGE, MOTOR]
+var motor_right[] =
+  [0, MOTOR+MOTOR_CHANGE, MOTOR, MOTOR-MOTOR_CHANGE, MOTOR]
+var i       # Index variable
+
+# Initialization
+call leds.circle(0,0,0,0,0,0,0,0)
+timer.period[0] = 0
+
+# Set the circle leds to indicate the state
+sub set_circle_leds
+  if state==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if state==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if state==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if state==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if state==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if state==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+
+# When center button released
+onevent button.center
+  if  button.center == 0 then
+    # If off, set state to 1 (on) and dirve forwards
+    if  state == 0 then
+      state = 1
+      motor.left.target  = MOTOR - MOTOR_CHANGE
+      motor.right.target = MOTOR + MOTOR_CHANGE
+      timer.period[0] = period[1]
+      callsub set_circle_leds
+    #   else if state is on, call stop the motors
+    else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+      timer.period[0] = 0
+      callsub set_circle_leds
+    end
+  end
+
+# Timer, go to next state
+onevent timer0
+  if state == 0 then return end
+  for i in 1:4 do
+    if state == i then
+      state = (state+1) % 5
+      motor.left.target  = motor_left[state]
+      motor.right.target = motor_right[state]
+      timer.period[0] = period[state]
+      callsub set_circle_leds
+      return
+    end
+  end</node>
+
+
+</network>

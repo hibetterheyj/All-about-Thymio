@@ -1,0 +1,44 @@
+%
+% Print rectangles of various shades of gray
+% Use "black!n" for different values of "n"
+%
+
+\documentclass[11pt,a4paper]{article}
+\usepackage{tikz}
+\pagestyle{empty}
+
+\begin{document}
+
+\newpage
+
+\begin{center}
+\begin{tikzpicture}
+\fill[black!20] (0,0) rectangle +(10,20);
+\end{tikzpicture}
+\end{center}
+
+\newpage
+
+\begin{center}
+\begin{tikzpicture}
+\fill[black!40] (0,0) rectangle +(10,20);
+\end{tikzpicture}
+\end{center}
+
+\newpage
+
+\begin{center}
+\begin{tikzpicture}
+\fill[black!60] (0,0) rectangle +(10,20);
+\end{tikzpicture}
+\end{center}
+
+\newpage
+
+\begin{center}
+\begin{tikzpicture}
+\fill[black!80] (0,0) rectangle +(10,20);
+\end{tikzpicture}
+\end{center}
+
+\end{document}

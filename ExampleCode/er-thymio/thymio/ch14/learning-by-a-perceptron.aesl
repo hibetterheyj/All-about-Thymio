@@ -1,0 +1,44 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event size="3" name="accelerometers"/>
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: learning by a perceptron
+# Copyright 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Touch the forward button to sample not dangerous
+# Touch the back button to sample dangerous
+
+# Export a code (1 or 2) and the acc values
+#   Right click on the event "accelerometers" and select plot
+#   Click the "plot of ground" tab to display the plot window
+#   Click "Save as"
+# To clear before next run
+#   Click "Clear" below the bottom right pane 
+#   Click clear in the plot window
+
+onevent button.forward
+  when button.forward == 0 do
+    emit accelerometers [1, acc[1], acc[2]]
+  end
+
+onevent button.backward
+  when button.backward == 0 do
+    emit accelerometers [2, acc[1], acc[2]]
+  end
+</node>
+
+
+</network>

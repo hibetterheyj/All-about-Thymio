@@ -1,0 +1,57 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="20" name="SIZE"/>
+<constant value="200" name="PERIOD"/>
+<constant value="523" name="BASE"/>
+<constant value="10" name="FACTOR"/>
+<constant value="25" name="DURATION"/>
+
+
+<!--show keywords state-->
+<keywords flag="false"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: Measuring the attitude using accelerometers
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Store the left-right acceleration
+
+# Variables
+var sample   # Accelerometer sample (-32..32)
+var axis=0   # Axis to measure (0=yaw, 1=pitch, 2=roll)
+
+call leds.circle(0,0,0,0,0,0,0,0)
+
+# Set the circle leds to indicate the sample
+# Calibrate the scale factors
+sub set_circle_leds
+  call leds.circle(
+    (sample/12)*31, (sample/16)*31, (sample/20)*31, (sample/24)*31,
+    (sample/28)*31, (sample/32)*31, (sample/36)*31, (sample/40)*31)
+
+# Use buttons to choose axis
+onevent button.forward
+  axis = 0
+onevent button.center
+  axis = 1
+onevent button.backward
+  axis = 2
+
+# Sample the chosen accelerometer
+# Make positive for display
+onevent acc
+  sample = acc[axis]
+  sample = (sample+32)
+  callsub set_circle_leds
+  </node>
+
+
+</network>

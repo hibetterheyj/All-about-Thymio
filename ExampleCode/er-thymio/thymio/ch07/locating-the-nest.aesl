@@ -1,0 +1,357 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event size="2" name="ground_emit"/>
+<event size="0" name="go"/>
+
+
+<!--list of constants-->
+<constant value="1" name="SEARCH"/>
+<constant value="200" name="TURNING_SPEED"/>
+<constant value="2" name="MOVE_FORWARD"/>
+<constant value="200" name="FORWARD_SPEED"/>
+<constant value="500" name="THRESHOLD_EXPLORE"/>
+<constant value="3" name="FOLLOW_LINE"/>
+<constant value="4" name="TURN_RANDOM"/>
+<constant value="3500" name="WALL_DETECT"/>
+<constant value="5" name="GO_TO_LIGHT"/>
+<constant value="6" name="PREPARE_GO_TO_LIGHT"/>
+<constant value="7" name="LOOK_FOR_LIGHT"/>
+<constant value="8" name="TURN_TO_LIGHT"/>
+<constant value="400" name="BLACK"/>
+<constant value="600" name="THRESHOLD_FOLLOW"/>
+<constant value="9" name="SEARCH_BLACK"/>
+<constant value="10" name="NEST"/>
+<constant value="11" name="SEARCH_BLACK2"/>
+<constant value="12" name="GOTO_SEARCH_BLACK"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="11196" name="thymio-II">var status = 0
+var time_100ms = 0
+var time_target
+var turning
+
+var accTampon0[4] = 0,0,0,0
+var accTamponPos0 = 0
+var accTampon1[4] = 0,0,0,0
+var accTamponPos1 = 0
+var sumacc0
+var sumacc1
+
+#variable for searching the light
+var acc_max
+var max_index
+
+#variable for searching the black
+var end_black
+var start_black
+
+
+# declaring pseudofunction input and output arguments. 
+var myrand_min    #input for random numbers
+var myrand_max    #input for random numbers
+var myrand_res  #output for random numbers
+
+timer.period[0] = 100 #100ms between each state check of timer0
+timer.period[1] = 100 #100ms between each sampling of timer1 
+
+# declaring pseudorandom function myrand
+sub myrand
+call math.rand(myrand_res)
+myrand_res = abs(myrand_res % (myrand_max+1 - myrand_min)) + myrand_min
+
+#the Thymio turning at -100 / 100 takes 9 seconds to make 360 degrees
+# -> 90 in time_100ms = 360 degrees -> time_100ms = degrees/4
+
+
+#to start put robot in front of the light in the nest, front toward the wall
+onevent button.forward 
+	status = NEST
+	call leds.top(32, 32, 32)
+	time_100ms = 0
+	motor.left.target = TURNING_SPEED
+	motor.right.target = -TURNING_SPEED
+	#turning between 90 and 270
+	myrand_min=90
+	myrand_max=270
+	callsub myrand
+	time_target = myrand_res/8  # time to turn	
+
+onevent go
+	status = NEST
+	call leds.top(32, 32, 32)
+	time_100ms = 0
+	motor.left.target = TURNING_SPEED
+	motor.right.target = -TURNING_SPEED
+	#turning between 90 and 270
+	myrand_min=90
+	myrand_max=270
+	callsub myrand
+	time_target = myrand_res/8  # time to turn	
+
+
+onevent timer0
+	if status == NEST then
+		if time_100ms > time_target then
+			motor.left.target = FORWARD_SPEED
+			motor.right.target = FORWARD_SPEED
+			status = MOVE_FORWARD
+			#moving between 2 and 10s
+			myrand_min=20
+			myrand_max=100
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res  # time to move	
+		end
+		if prox.ground.delta[0]&lt;THRESHOLD_EXPLORE or prox.ground.delta[1]&lt;THRESHOLD_EXPLORE then
+			status = FOLLOW_LINE
+			call leds.top(0, 32, 0)
+			motor.left.target = 0
+			motor.right.target = 0
+			time_100ms = 0
+			# ADD FOLLOWING 
+		end
+	end
+
+	if status == MOVE_FORWARD then
+		if time_100ms > time_target then
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = TURN_RANDOM
+			#turning between 0 and 360 degrees
+			myrand_min=0
+			myrand_max=360
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res/8  # time to move	
+		end
+		if prox.ground.delta[0]&lt;THRESHOLD_EXPLORE or prox.ground.delta[1]&lt;THRESHOLD_EXPLORE then
+			status = FOLLOW_LINE
+			call leds.top(0, 32, 0)
+			motor.left.target = 0
+			motor.right.target = 0
+			time_100ms = 0
+			# ADD FOLLOWING 
+		end
+		if prox.horizontal[0]>WALL_DETECT or 
+		   prox.horizontal[1]>WALL_DETECT or 
+		   prox.horizontal[2]>WALL_DETECT or 
+		   prox.horizontal[3]>WALL_DETECT or 
+		   prox.horizontal[4]>WALL_DETECT then
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = TURN_RANDOM
+			#turning between 90 and 270 degrees
+			myrand_min=90
+			myrand_max=270
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res/8  # time to move	
+		end
+	end
+
+	if status == TURN_RANDOM then
+		if time_100ms > time_target then
+			motor.left.target = FORWARD_SPEED
+			motor.right.target = FORWARD_SPEED
+			status = MOVE_FORWARD
+			#moving between 2 and 10s
+			myrand_min=20
+			myrand_max=100
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res  # time to move	
+		end
+		if prox.ground.delta[0]&lt;THRESHOLD_EXPLORE or prox.ground.delta[1]&lt;THRESHOLD_EXPLORE then
+			status = FOLLOW_LINE
+			call leds.top(0, 32, 0)
+			motor.left.target = 0
+			motor.right.target = 0
+			time_100ms = 0
+			# ADD FOLLOWING 
+		end
+	end
+
+	if status == FOLLOW_LINE then
+		if prox.ground.delta[0]&lt;BLACK and
+		   prox.ground.delta[1]&lt;BLACK then   # it got the food source
+			status = GOTO_SEARCH_BLACK
+			call leds.top(0, 0, 32)
+			motor.left.target = FORWARD_SPEED
+			motor.right.target = FORWARD_SPEED
+			#move forward a bit
+			time_100ms = 0
+			time_target = 6  # time to move	(0.6 second)
+		elseif prox.ground.delta[0]&lt;THRESHOLD_FOLLOW  then
+			time_100ms = 0
+			motor.left.target = 50
+			motor.right.target = 120
+		elseif prox.ground.delta[1]&lt;THRESHOLD_FOLLOW  then
+			time_100ms = 0
+			motor.left.target = 120
+			motor.right.target = 50
+		elseif time_100ms > 50 then  #timout -> back in turning
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = TURN_RANDOM
+			#turning between 0 and 360 degrees
+			myrand_min=0
+			myrand_max=360
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res/8  # time to move	
+			call leds.top(32, 32, 32)
+		end
+
+		if prox.horizontal[0]>WALL_DETECT or 
+		   prox.horizontal[1]>WALL_DETECT or 
+		   prox.horizontal[2]>WALL_DETECT or 
+		   prox.horizontal[3]>WALL_DETECT or 
+		   prox.horizontal[4]>WALL_DETECT then
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = NEST
+			call leds.top(32, 32, 32)
+			#turning between 450 and 630 degrees
+			myrand_min=450
+			myrand_max=630
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res/8  # time to move	
+		end
+	end
+
+	if status == GOTO_SEARCH_BLACK then
+		if time_100ms > time_target then  #we are turned toward the center of the black
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			time_100ms = 0
+			time_target = 48  # time to move	(360 degrees)
+			status = SEARCH_BLACK
+			call leds.top(32, 0, 0)
+		end
+	end
+
+	if status == SEARCH_BLACK then
+		if time_100ms > time_target then
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = SEARCH_BLACK2
+			call leds.top(32, 0, 0)
+			time_100ms = 0
+			time_target = start_black + (46 - start_black + end_black)/2 - 3
+		else
+			emit ground_emit prox.ground.delta # debug
+			when prox.ground.delta[1]>BLACK do
+				end_black = time_100ms
+			end
+			when prox.ground.delta[1]&lt;BLACK do
+				start_black = time_100ms
+			end
+		end
+	end
+
+	if status == SEARCH_BLACK2 then
+		if time_100ms > time_target then  #we are turned toward the center of the black
+			motor.left.target = FORWARD_SPEED
+			motor.right.target = FORWARD_SPEED
+			status = PREPARE_GO_TO_LIGHT
+			call leds.top(32, 0, 0)
+		end
+	end
+
+	# stops when end of the black
+	if status == PREPARE_GO_TO_LIGHT then
+		if prox.ground.delta[0]>BLACK and
+		   prox.ground.delta[1]>BLACK then
+			motor.left.target = 47
+			motor.right.target = -47
+			time_100ms = 0
+			time_target = 360/2  # time to move	
+			status = LOOK_FOR_LIGHT
+			acc_max=0
+			max_index = 0
+		end
+	end
+
+	# turns and records the max value of accelerometers
+	if status == LOOK_FOR_LIGHT then
+		if time_100ms > time_target then
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = TURN_TO_LIGHT
+			call leds.top(32, 0, 0)
+			time_100ms = 0
+			time_target = max_index/(TURNING_SPEED/50)
+		elseif acc[1] >= acc_max then
+			acc_max = acc[1]
+			max_index = time_100ms
+		end
+	end
+
+	if status == TURN_TO_LIGHT then
+		if time_100ms > time_target then
+			motor.left.target = 0
+			motor.right.target = 0
+			time_100ms = 0
+			status = GO_TO_LIGHT
+		end
+	end
+
+		if status == GO_TO_LIGHT then
+
+			accTampon0[accTamponPos0] = acc[0]-2  #measure lateral tilt
+			accTamponPos0 = (accTamponPos0 + 1) % 4
+			sumacc0 = accTampon0[0] + accTampon0[1] + accTampon0[2] + accTampon0[3]
+			accTampon1[accTamponPos1] = acc[1]     #measure front tilt
+			accTamponPos1 = (accTamponPos1 + 1) % 4
+			sumacc1 = accTampon1[0] + accTampon1[1] + accTampon1[2] + accTampon1[3]
+
+			if (0&lt;=time_100ms and time_100ms&lt;=12) or (20&lt;=time_100ms and time_100ms&lt;=32) or (40&lt;=time_100ms and time_100ms&lt;=52) then 
+				# acc0 gives rotation, acc1 gives forward movement	
+				motor.left.target=sumacc0*10+sumacc1*10    
+				motor.right.target=-sumacc0*10+sumacc1*10
+			else
+				motor.left.target=-sumacc0*10-sumacc1*10    
+				motor.right.target=sumacc0*10-sumacc1*10
+			end
+			if time_100ms>60 then
+				time_100ms=0
+			end
+
+		
+		if prox.horizontal[0]>WALL_DETECT or 
+		   prox.horizontal[1]>WALL_DETECT or 
+		   prox.horizontal[2]>WALL_DETECT or 
+		   prox.horizontal[3]>WALL_DETECT or 
+		   prox.horizontal[4]>WALL_DETECT then
+			motor.left.target = TURNING_SPEED
+			motor.right.target = -TURNING_SPEED
+			status = NEST
+			call leds.top(32, 32, 32)
+			#turning between 450 and 630 degrees
+			myrand_min=450
+			myrand_max=630
+			callsub myrand
+			time_100ms = 0
+			time_target = myrand_res/8  # time to move	
+		end
+	end
+	
+onevent timer1
+	time_100ms += 1
+	
+	
+
+
+</node>
+
+
+</network>

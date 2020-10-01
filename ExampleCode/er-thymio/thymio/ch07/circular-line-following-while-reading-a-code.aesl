@@ -1,0 +1,109 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="300" name="THRESHOLD"/>
+<constant value="1000" name="TIMER"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="55994" name="thymio-II"># Thymio-II program: circular line following while reading a code
+# Copyright 2013, 2017 by Moti Ben-Ari
+# CreativeCommons BY-SA 3.0
+
+# Drive in a circle
+#   Stop when black tape detected, or
+#     when timer interval has passed
+# Adjust TIMER and check of second count as needed
+
+# Constants
+#  THRESHOLD for sensing the tape
+#  TIMER     timer for computing direction
+
+# Variables
+var motor # The motor power
+var state # 0 = off, 1 = on
+var count # Of seconds (half seconds would be more accurate...)
+var stop  # Seconds to stop
+call leds.circle(0,0,0,0,0,0,0,0)
+
+# Initialization
+motor = 0
+state = 0
+
+# Set the circle leds to indicate the motor power
+# Set number of seconds to turn for each power
+sub set_circle_leds
+  if motor/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/100==1 then call leds.circle(32,0,0,0,0,0,0,0) stop = 18 end
+  if motor/100==2 then call leds.circle(32,32,0,0,0,0,0,0) stop = 9 end
+  if motor/100==3 then call leds.circle(32,32,32,0,0,0,0,0) stop = 6 end
+  if motor/100==4 then call leds.circle(32,32,32,32,0,0,0,0) stop = 5 end
+  if motor/100==5 then call leds.circle(32,32,32,32,32,0,0,0) stop = 4 end
+
+# Left and right button event handlers
+#   Increase or decrease motor power within 0-500
+onevent button.left
+  if  button.left == 0 then
+    motor = motor - 100
+    if  motor &lt; 0 then motor = 0 end
+    callsub set_circle_leds
+  end
+
+onevent button.right
+  if  button.right == 0 then
+    motor = motor + 100
+    if  motor > 500 then motor = 500 end
+    callsub set_circle_leds
+  end
+
+# When center button released
+onevent button.center
+  when button.center == 0 do
+    # If off, set state to 1 (on) and dirve forwards
+    if  state == 0 then
+      state = 1
+      motor.left.target  = motor
+      motor.right.target = 0
+      timer.period[0] = TIMER
+      count = 0
+    #   else if state is on, call stop the motors
+    else
+      state = 0
+      motor.left.target  = 0
+      motor.right.target = 0
+    end
+    callsub set_circle_leds
+  end
+
+# Timer event occurs
+onevent timer0
+  if state == 1 then
+    count++
+    if count > stop then
+      motor.left.target  = 0
+      motor.right.target = 0
+      state = 0
+    end
+  end
+
+# Proximity event occurs, call subroutine drive
+onevent prox
+  if prox.ground.delta[0] &lt; THRESHOLD or
+     prox.ground.delta[1] &lt; THRESHOLD then
+     motor.left.target  = 0
+     motor.right.target = 0
+     state = 0
+  end
+</node>
+
+
+</network>
