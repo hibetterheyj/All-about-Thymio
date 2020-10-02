@@ -20,7 +20,7 @@
 - [Crash Tutorial on Thymio using Aseba Studio](http://wiki.thymio.org/en:thymiotutorielp1)
 - [Tutorial on Programming with Text](http://wiki.thymio.org/en:asebausermanual)
 - Main Programming Language: [The Aseba language](http://wiki.thymio.org/en:asebalanguage)
-- :star: [**My Note on _Elements of Robotics_**](https://github.com/hibetterheyj/All-about-Thymio)
+- :star: [**My Note on _Elements of Robotics_**](https://github.com/hibetterheyj/All-about-Thymio/blob/master/Note%20on%20Elements%20of%20Robotics.md)
 
 ### Project
 

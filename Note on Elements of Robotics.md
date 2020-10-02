@@ -1,8 +1,14 @@
 # Notes on *Elements of Robotics*
 
+> :star: for detailed-commented and modified code​
+>
+> Recommendation: using [GayHub](https://chrome.google.com/webstore/detail/gayhub/mdcffelghikdiafnfodjlgllenhlnejl) Chrome Extension for better reading experience on Github !
+
 ## Chap3 Reactive Behavior
 
-- [Braitenberg vehicle](https://en.wikipedia.org/wiki/Braitenberg_vehicle)：只能小车雏形
+> [Braitenberg vehicle](https://en.wikipedia.org/wiki/Braitenberg_vehicle): Valentino Braitenberg’s vehicles were constructed as thought experiments not intended for implementation with electronic components or in software
+
+### 3.2 Reacting to the Detection of an Object
 
 #### :star:Algorithm 3.1: Timid
 
@@ -123,6 +129,8 @@ onevent prox
 	end
 ```
 
+### 3.3 Reacting and Turning
+
 #### Algorithm 3.3 Paranoid
 
 > In the algorithm, the left and right motors are set to equal but opposite powers. Experiment with these power levels to see their influence on the turning radius of the robot.
@@ -226,6 +234,8 @@ onevent prox
 	end
 ```
 
+### 3.4 Line Following - 3.4.1 Line Following with a Pair of Ground Sensors
+
 #### Algorithm 3.4: Line following with two sensors
 
 > If the robot moves off the line to the left, the left sensor will not detect the line while the right sensor is still detecting it; the robot must turn to the right.
@@ -237,7 +247,7 @@ onevent prox
 
   prox.ground.delta/relected两个值遇到黑色反光就会降到200以下
 
-- 伪代码
+- pseudocode | 伪代码
 
   ```
   1: when both sensors detect black
@@ -657,6 +667,260 @@ onevent prox
       end
     ```
 
-    
+- Algorithm2 (TODO)
+
+  > The previous algorithm might not work if the robot is moving too fast and runs off the line before it detects that only one sensor lost the line. Instead, if both sensors no longer detect black, cause the robot the search for the line for a short distance, first in one direction and then in the other direction.
+
+### 3.4 Line Following - 3.4.2 Line Following with only One Ground Sensor (TODO)
+
+#### Algorithm 3.5: Line following with one sensor
+
+> A robot can follow a line with only one ground sensor if the reflectivity of the line varies across its width.
+
+- pseudocode | 伪代码
+
+
+
+## Chap13 (TODO)
+
+### 13.5 Learning - 13.5.2 The Hebbian Rule for Learning in ANNs
+
+#### Algorithm 13.1: ANN for obstacle avoidance
+
+- Background
+
+  In Algorithm 13.1 a timer is set to a period such as 100 ms. The timer is decremented by the operating system (not shown) and when it expires, the outputs y1 and y2 are computed by Eq. 13.3 below. These outputs are then used to set the power of the left and right motors, and, finally, the timer is reset. 
+
+- pseudocode | 伪代码
+
+  ```
+  integer period←· · · // Timer period (ms)
+  integer timer ← period
+  float array[5] x
+  float array[2] y
+  float array[2,5] W
+  
+  1: when timer expires
+  2: x ← sensor values
+  3: y ← W x
+  4: left-motor-power ← y[1]
+  5: right-motor-power ← y[2]
+  6: timer ← period
+  ```
+
+- Official Code (Only using 3 proximity sensors)
+
+  ```
+  # Weights of neuron inputs
+  var w_fwd  = 20  # Reasonable forward speed
+  var w_back = 40  # > fwd so robot will move backwards
+  var w_neg  = 30  # also > fwd
+  var w_pos  = 10  # amplifies fwd so not too large
+  
+  # Neuron inputs and outputs
+  var x1
+  var x2
+  var x3
+  var y1
+  var y2
+  
+  # Scale factors for sensors and constant factor
+  var sensor_scale   = 200
+  var constant_scale =  20
+  
+  # State for start and stop
+  var state = 0
+  
+  timer.period[0] = 100    # Milliseconds
+  
+  # Toggle start and stop with center button
+  onevent button.center
+    when button.center == 0 do
+      if state == 0 then
+      	state = 1
+      else
+        state = 0
+        motor.left.target  = 0
+        motor.right.target = 0
+      end
+    end
+  
+  # Activiate neurons periodically
+  onevent timer0
+    # Do nothing if stopped
+    if state == 0 then return end
+  
+    # Get and scale inputs
+    x1 = prox.horizontal[0]/sensor_scale
+    x2 = prox.horizontal[2]/sensor_scale
+    x3 = prox.horizontal[4]/sensor_scale
+  
+    # Compute outputs of neurons and set motor powers
+    y1 = 1*constant_scale*w_fwd + x1*w_pos - x2*w_back - x3*w_neg
+    y2 = 1*constant_scale*w_fwd - x1*w_neg - x2*w_back + x3*w_pos
+    motor.left.target  = y1
+    motor.right.target = y2
+  ```
+
+- My code (TODO)
+
+#### Algorithm 13.2: Feedback on the robot’s behavior
+
+- Background
+
+  To cause the algorithm to learn, feedback is used to modify the weightsW(Algorithms 13.2, 13.3). Let us assume that there are four buttons on the robot or on a remote control, one for each direction forwards, backwards, left and right. Whenever we note that the robot is in a situation that requires a certain behavior, we touch the corresponding button. For example, if the left sensor detects an obstacle, the robot should turn right.
+
+  (from course exercise)
+
+  Instead of making random movements and waiting for good situations to reinforce, you can present good situations to the network by placing the robot in an avoidance situation and pressing a button showing the right reaction
+
+- pseudocode | 伪代码
+
+  ```
+  1: when button {forward / backward / left / right} touched
+  2: y1 ← {100 / −100 / −100 / 100}
+  3: y2 ← {100 / −100 / 100 / −100}
+  ```
+
+- Code (TODO)
+
+#### :question: Algorithm 13.3: Applying the Hebbian rule
+
+- Background
+
+  The next phase of the algorithm is to update the connection weights according to
+  the Hebbian rule (Algorithm 13.3).
+
+- pseudocode | 伪代码
+
+  ```
+  1: x ← sensor values
+  2: for j in {1, 2, 3, 4, 5}
+  3: wjl ← wjl + α y1 x j
+  4: wjr ← wjr + α y2 x j
+  ```
+
+- Official Code (Over complicated)
+
+  ```
+  # Neuron inputs (7 IR sensors and constant input) and outputs
+  var x[8]
+  var y[2]
+  
+  # Scale factors for sensors, outputs and motors
+  var sensor_scale   = 100
+  var output_scale   =  20
+  var motor_scale    =  15
+  
+  # Constant input to move forwards
+  var constant_input =  25
+  
+  # Threshold for start/stop with ground sensors
+  var start_stop_threshold = 300
+  
+  # Left and right weights
+  var w_left[8]
+  var w_right[8]
+  
+  # Learning rate
+  var alpha = 2
+  
+  # Speed increment for each learning episode
+  var speed = 10
+  
+  # The desired output for each button: +/-speed
+  var y_left
+  var y_right
+  
+  # Loop index
+  var i
+  
+  # State: off or on
+  var state = 0
+  
+  # Time period (millisecconds) to compute motor outputs from inputs
+  timer.period[0] = 100
+  
+  # Start in off state and not moving
+  call leds.top(0,0,0)
+  motor.left.target  = 0
+  motor.right.target = 0
+  
+  # Toggle start and stop with ground sensors
+  onevent prox
+    if prox.ground.delta[0] > start_stop_threshold and
+       prox.ground.delta[1] > start_stop_threshold then
+      return
+    end
+    motor.left.target  = 0
+    motor.right.target = 0
+    if state == 0 then
+      # Set weights initially to zero
+      for i in 0:7 do
+    	    w_left[i]  = 0
+    	    w_right[i] = 0
+    	 end
+      call leds.top(32,32,32)
+      state = 1
+    else
+      call leds.top(0,0,0)
+      state = 0
+    end
+  
+  # Change weights according to Hebbian rule
+  sub change_weights
+  	for i in 0:7 do
+  		w_left[i]  = w_left[i]  + (alpha*y_left*x[i])  / output_scale
+  		w_right[i] = w_right[i] + (alpha*y_right*x[i]) / output_scale
+  	end
+  
+  # For each button set y_left, y_right and change weights
+  onevent button.center
+    y_left  = speed
+    y_right = speed
+    callsub change_weights
+  
+  onevent button.left
+    y_left  = -speed
+    y_right = speed
+    callsub change_weights
+  
+  onevent button.right
+    y_left  = speed
+    y_right = -speed
+    callsub change_weights
+  
+  onevent button.forward
+    y_left  = speed
+    y_right = speed
+    callsub change_weights
+  
+  onevent button.backward
+    y_left  = -speed
+    y_right = -speed
+    callsub change_weights
+  
+  # Timer event
+  onevent timer0
+     if state == 0 then return end
+  
+     # Read and scale inputs
+     x[7] = constant_input
+     for i in 0:6 do
+       x[i]=prox.horizontal[i]/sensor_scale
+     end
+  
+     # Compute dot product of inputs and weights
+     y[0] = 0
+     y[1] = 1
+     for i in 0:7 do
+     	y[0] = y[0] + x[i]*w_left[i]
+     	y[1] = y[1] + x[i]*w_right[i]
+     end
+  
+    # Scale and set motor powers
+    motor.left.target  = y[0] / motor_scale
+    motor.right.target = y[1] / motor_scale
+  ```
 
   
