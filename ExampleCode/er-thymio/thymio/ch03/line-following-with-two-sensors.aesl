@@ -5,58 +5,65 @@
 <!--list of global events-->
 
 
-<!--list of constants-->
-<constant value="200" name="THRESHOLD"/>
-<constant value="25" name="CHANGE"/>
-<constant value="100" name="INCREMENT"/>
+<!--node Thymio 51-->
+<node name="Thymio 51" nodeId="{8df48000-9b5f-4a30-a2f8-2331ee5a257d}"><![CDATA[# Constants 常量
+var CHANGE = 25
+var INCREMENT = 50
+var THRESHOLD = 200
 
-
-<!--show keywords state-->
-<keywords flag="true"/>
-
-
-<!--node thymio-II-->
-<node nodeId="55994" name="thymio-II"># Thymio-II program: line following with two sensors
-# Copyright 2013, 2017 by Moti Ben-Ari
-# CreativeCommons BY-SA 3.0
-
-# Line following with two sensors
-# Left, right buttons set motor power
-# Center button to start, stop
-
-# Constants
-#  THRESHOLD for sensing the tape
-#  DIFF      difference to remember last deviation
-#  CHANGE    percentage change of motors for steering
-
-# Variables
+# Variables 变量
 var motor          # The base value of the motor power
 var motor_change   # The amount to change when approaching and turning
+# Activity 3.12 Algorithm 1 P46
+var lost_first = -1 # 0 for left doesn't, 1 for right doesn't
+var recovery_mode = 0 # 0 = off, 1 = on
 
-var state # 0 = off, 1 = on
+var state # 0 = off, 1 = on 运行状态
 
-# Initialization
+# Initialization 变量以及LED灯状态初始化
+state = 0
 motor = 0
 motor_change = (motor * CHANGE)/100
-state = 0
 call leds.circle(0,0,0,0,0,0,0,0)
 call leds.top(0,0,0)
 
-# Set the circle leds to indicate the motor power
-sub set_circle_leds
-  if motor/100==0 then call leds.circle(0,0,0,0,0,0,0,0) end
-  if motor/100==1 then call leds.circle(32,0,0,0,0,0,0,0) end
-  if motor/100==2 then call leds.circle(32,32,0,0,0,0,0,0) end
-  if motor/100==3 then call leds.circle(32,32,32,0,0,0,0,0) end
-  if motor/100==4 then call leds.circle(32,32,32,32,0,0,0,0) end
-  if motor/100==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+call leds.bottom.left(0,0,0)
+call leds.bottom.right(0,0,0)
 
-# Left and right button event handlers
+# 对于救援模式的灯
+sub set_bottom_leds
+  if recovery_mode==1 then
+	  if lost_first==-1 then
+		call leds.bottom.left(32,0,0)
+	  	call leds.bottom.right(32,0,0)
+	  else
+	  	call leds.bottom.left(0,0,32)
+	  	call leds.bottom.right(0,0,32)
+	  end
+  elseif recovery_mode==0 then
+	  	call leds.bottom.left(0,0,0)
+	  	call leds.bottom.right(0,0,0)
+  end
+
+# Set the circle leds to indicate the motor power
+# 设计subroutine，实现在后续motor功率调整后，车上LED灯显现出对应的颜色
+sub set_circle_leds
+  if motor/50==0 then call leds.circle(0,0,0,0,0,0,0,0) end
+  if motor/50==1 then call leds.circle(32,0,0,0,0,0,0,0) end
+  if motor/50==2 then call leds.circle(32,32,0,0,0,0,0,0) end
+  if motor/50==3 then call leds.circle(32,32,32,0,0,0,0,0) end
+  if motor/50==4 then call leds.circle(32,32,32,32,0,0,0,0) end
+  if motor/50==5 then call leds.circle(32,32,32,32,32,0,0,0) end
+  if motor/50==6 then call leds.circle(32,32,32,32,32,32,0,0) end
+  if motor/50==7 then call leds.circle(32,32,32,32,32,32,32,0) end
+  if motor/50>=8 then call leds.circle(32,32,32,32,32,32,32,32) end
+
+# Left and right button event handlers 使用左右按钮调整功率
 #   Increase or decrease motor power within 0-500
 onevent button.left
   if  button.left == 0 then
     motor = motor - INCREMENT
-    if  motor &lt; 0 then motor = 0 end
+    if  motor < 0 then motor = 0 end
     motor_change = (motor * CHANGE)/100
     callsub set_circle_leds
   end
@@ -72,7 +79,7 @@ onevent button.right
 # When center button released
 onevent button.center
   if  button.center == 0 then
-    # If off, set state to 1 (on) and dirve forwards
+    # If off, set state to 1 (on) and drive forwards
     if  state == 0 then
       state = 1
       motor.left.target  = motor
@@ -86,30 +93,66 @@ onevent button.center
     motor_change = (motor * CHANGE)/100
     callsub set_circle_leds
   end
+  
+# When backford button released
+onevent button.backward
+  if  button.backward == 0 then
+    if  recovery_mode == 0 then
+      recovery_mode = 1
+      callsub set_bottom_leds
+    else
+      recovery_mode = 0
+      lost_first = -1
+      callsub set_bottom_leds
+    end
+  end
 
-# Proximity event occurs, turn if necessary
+# Proximity event occurs, turn if necessary 
+# 判定是否接触地面上特定的条纹
 onevent prox
   if  state == 0 then return end
   # If both sensors detect the tape, go straight
-  if  prox.ground.delta[0] &lt; THRESHOLD and
-      prox.ground.delta[1] &lt; THRESHOLD then
+  if  prox.ground.delta[0] < THRESHOLD and
+      prox.ground.delta[1] < THRESHOLD then
     motor.left.target  = motor
     motor.right.target = motor
     call leds.top(32,0,0)
+    lost_first = -1
+    callsub set_bottom_leds
   # If left detects and right doesn't, turn left
-   elseif prox.ground.delta[0] &lt; THRESHOLD and
+   elseif prox.ground.delta[0] < THRESHOLD and
          prox.ground.delta[1] >= THRESHOLD then
-  	 motor.left.target  = motor - motor_change
-  	 motor.right.target = motor + motor_change
-     call leds.top(0, 0, 32)
+  	motor.left.target  = motor - motor_change
+  	motor.right.target = motor + motor_change
+    call leds.top(0, 0, 32)
+    # Activity 3.12 Algorithm 1 P46
+    lost_first = 1 # 0 for left doesn't, 1 for right doesn't
   # If right detects and left doesn't, turn right
    elseif prox.ground.delta[0] >= THRESHOLD and
-         prox.ground.delta[1] &lt; THRESHOLD then
+         prox.ground.delta[1] < THRESHOLD then
     motor.left.target  = motor + motor_change
-    motor.right.target = motor - motor_change
+    motor.right.target = motor - motor_change    
     call leds.top(0, 32, 0)
-  end
-</node>
+    # Activity 3.12 Algorithm 1 P46
+    lost_first = 0 # 0 for left doesn't, 1 for right doesn't
+   elseif prox.ground.delta[0] >= THRESHOLD and
+         prox.ground.delta[1] >= THRESHOLD then
+    if recovery_mode == 1 then
+	    if  lost_first == 1 then
+		  	motor.left.target = -motor_change
+		  	motor.right.target = motor
+	    	callsub set_bottom_leds
+	    elseif lost_first == 0 then
+	    	motor.left.target = motor
+		  	motor.right.target = -motor_change
+	    	callsub set_bottom_leds
+	    end
+	# 若不开救援模式，则两个传感器均没有检测到就停止
+	elseif recovery_mode == 0 then
+		motor.left.target = 0
+		motor.right.target = 0
+    end
+  end]]></node>
 
 
 </network>
