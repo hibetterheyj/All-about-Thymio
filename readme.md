@@ -24,9 +24,16 @@
 
 ### Project
 
-- Official: [Project based on Thymio](http://wiki.thymio.org/en:creations)
-  - [Linux on Thymio with Raspberry PI and Python](http://wiki.thymio.org/en:thymioraspyexample)
-  - [Thymio II balancing on a ball](http://wiki.thymio.org/en:thymioballeinverse)
+#### Official: [Project based on Thymio](http://wiki.thymio.org/en:creations)
+
+- [Linux on Thymio with Raspberry PI and Python](http://wiki.thymio.org/en:thymioraspyexample)
+- [Thymio II balancing on a ball](http://wiki.thymio.org/en:thymioballeinverse)
+
+#### Student project @ EPFL
+
+- [Simple SLAM implementation using A* algorithm and IR frontal proximity sensor of Thymio](https://www.youtube.com/watch?v=Nnsx8-H72Wk)
+- [EPFL || Basics of Mobile Robotics Project - December 2019](https://youtu.be/j_90MK3PXCc)
+- [Demo of the Mobile Robotics Project with Thymio at EPFL](https://youtu.be/UDhiHllIJEQ)
 
 ### Others
 

@@ -679,7 +679,7 @@ onevent prox
 
 - pseudocode | 伪代码
 
-
+---
 
 ## Chap13 (TODO)
 
@@ -708,7 +708,7 @@ onevent prox
   6: timer ← period
   ```
 
-- Official Code (Only using 3 proximity sensors)
+- Official Code (Only using 3 proximity sensors): fixed weights, using the 3 sensors for wheel speed change
 
   ```
   # Weights of neuron inputs
@@ -755,6 +755,7 @@ onevent prox
     x2 = prox.horizontal[2]/sensor_scale
     x3 = prox.horizontal[4]/sensor_scale
   
+    # corresponding to Fig. 13.4 Neural network for obstacle avoidance
     # Compute outputs of neurons and set motor powers
     y1 = 1*constant_scale*w_fwd + x1*w_pos - x2*w_back - x3*w_neg
     y2 = 1*constant_scale*w_fwd - x1*w_neg - x2*w_back + x3*w_pos
@@ -784,6 +785,8 @@ onevent prox
 
 - Code (TODO)
 
+  😅 It's hard to implement for the lack of remote control
+
 #### :question: Algorithm 13.3: Applying the Hebbian rule
 
 - Background
@@ -800,8 +803,13 @@ onevent prox
   4: wjr ← wjr + α y2 x j
   ```
 
-- Official Code (Over complicated)
+- Official Code
 
+  - X: all seven sensors and one bias, size (8,1)
+  - Weight: size with (2, 8)
+  - Y: size with (2, 1)
+  - using bottoms for weights update
+  
   ```
   # Neuron inputs (7 IR sensors and constant input) and outputs
   var x[8]
@@ -917,10 +925,10 @@ onevent prox
      	y[0] = y[0] + x[i]*w_left[i]
      	y[1] = y[1] + x[i]*w_right[i]
      end
-  
+
     # Scale and set motor powers
     motor.left.target  = y[0] / motor_scale
     motor.right.target = y[1] / motor_scale
   ```
-
+  
   

@@ -65,7 +65,7 @@ onevent button.center
 # When all samples are saved, initiate the sounds
 onevent timer1
   if  state == 1 then
-    if  index &lt; SIZE then
+    if  index < SIZE then
       save0[index] = acc[0]
       save1[index] = acc[1]
       index++
@@ -80,7 +80,7 @@ onevent sound.finished
   if  state != 3 then
   	return
   end
-  if  index &lt; SIZE then
+  if  index < SIZE then
     call sound.freq(notes[(save0[index]+32) % 8], save1[index]+33)
     index++
   else
