@@ -24,6 +24,18 @@
 
 ### Project
 
+#### GitHub
+
+- ⭐[raikilon/**cnn-angular-velocity**](https://github.com/raikilon/cnn-angular-velocity): ROS implementation that use a CNN regressor to predict the angular velocity of the Mighty Thymio to avoid obstacles and pitfalls
+- ⭐[mezdahun/**VisualSwarm**](https://github.com/mezdahun/VisualSwarm): Implementation of a minimal vision algorithm published by Bastien & Romanczuk (2020) on a Raspberry PI for movement control of Thymio II robots.
+- ⭐[TimMilhomme/**wifiHeatMapRobot**](https://github.com/TimMilhomme/wifiHeatMapRobot): This is a project where we couple a raspberry pi 4 with a Thymio II to create an autonomous vehicle able to map a room physically and by it's wifi intensity.
+- ⭐[AmirDavoodi/**Hand-Gestures-Human-Robot-Interaction**](https://github.com/AmirDavoodi/Hand-Gestures-Human-Robot-Interaction): This project is the final project of the course Robotics 2019 and we are implementing hand gesture classifier to using it for controlling Mighty Thymio robot which is a differential robot.
+- ⭐[GiorgiaAuroraAdorni/**learning-robot-swarm-controllers**](https://github.com/GiorgiaAuroraAdorni/learning-robot-swarm-controllers): Master thesis project that simulate robot swarms for learning communication-aware coordination. @ USI 19/20.
+  https://giorgiaauroraadorni.github.io/learning-robot-swarm-controllers/index.html
+
+
+
+
 #### Official: [Project based on Thymio](http://wiki.thymio.org/en:creations)
 
 - [Linux on Thymio with Raspberry PI and Python](http://wiki.thymio.org/en:thymioraspyexample)
